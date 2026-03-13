@@ -3,6 +3,18 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -13,6 +25,15 @@
   }
 
   .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
     display: none;
   }
 }
