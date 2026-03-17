@@ -32,10 +32,10 @@ function HomePage() {
   ];
 
   return (
-    <div className="no-scrollbar h-screen overflow-y-auto bg-linear-to-b from-orange-50 via-amber-50 to-white text-orange-950">
+    <div className="page-shell no-scrollbar h-screen overflow-y-auto">
       <SiteNav>
         <>
-          <nav className="hidden items-center gap-6 text-sm font-semibold text-orange-900/80 md:flex">
+          <nav className="hidden items-center gap-6 text-sm font-medium text-orange-900/80 md:flex">
             <a href="#how-it-works" className="hover:text-orange-600">
               How It Works
             </a>
@@ -53,12 +53,12 @@ function HomePage() {
       </SiteNav>
 
       <main className="mx-auto w-[92vw] max-w-6xl">
-        <section className="grid items-center gap-8 py-14 md:grid-cols-2 md:py-20">
+        <section className="grid items-center gap-8 py-12 md:grid-cols-2 md:py-16">
           <div>
-            <p className="inline-block rounded-full bg-orange-100 px-4 py-1 text-sm font-semibold text-orange-800">
+            <p className="inline-block rounded bg-orange-100 px-3 py-1 text-xs font-medium text-orange-800">
               Built for your lecture-to-study workflow
             </p>
-            <h1 className="mt-4 text-4xl font-extrabold leading-tight md:text-6xl">
+            <h1 className="mt-4 text-3xl font-bold leading-tight md:text-5xl">
               Organized lecture notes in minutes, not hours.
             </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-orange-900/75 md:text-lg">
@@ -70,7 +70,7 @@ function HomePage() {
               <ActionButton to="/signup">Get Started</ActionButton>
             </div>
           </div>
-          <div className="overflow-hidden rounded-3xl border border-orange-200 bg-white shadow-xl shadow-orange-200/40">
+          <div className="surface overflow-hidden">
             <img
               src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1200&q=80"
               alt="Student classroom lecture notes and laptop"
@@ -79,8 +79,8 @@ function HomePage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="py-10 md:py-14">
-          <h2 className="text-3xl font-bold md:text-4xl">
+        <section id="how-it-works" className="py-8 md:py-12">
+          <h2 className="text-2xl font-bold md:text-3xl">
             How students interact with SnapStudy
           </h2>
           <p className="mt-2 text-base text-orange-900/70">
@@ -93,8 +93,8 @@ function HomePage() {
           </div>
         </section>
 
-        <section className="mb-10 rounded-3xl border border-orange-200 bg-orange-100/60 px-6 py-10 text-center md:mb-14">
-          <h2 className="text-3xl font-bold md:text-4xl">
+        <section className="surface mb-10 bg-orange-100 px-6 py-8 text-center md:mb-14">
+          <h2 className="text-2xl font-bold md:text-3xl">
             Ready to study smarter?
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-orange-900/75">
@@ -110,13 +110,10 @@ function HomePage() {
         </section>
       </main>
 
-      <footer
-        id="footer"
-        className="border-t border-orange-200 bg-white/90 backdrop-blur"
-      >
+      <footer id="footer" className="border-t border-orange-200 bg-orange-50">
         <div className="mx-auto flex w-[92vw] max-w-6xl flex-col gap-4 py-8 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-lg font-extrabold">SnapStudy</h3>
+            <h3 className="text-lg font-bold">SnapStudy</h3>
             <p className="text-sm text-orange-900/70">
               Lecture notes, simplified for students.
             </p>
