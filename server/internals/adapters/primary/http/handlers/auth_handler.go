@@ -24,6 +24,7 @@ func (authHandler *AuthHandler) Register(context *gin.Context){
 		context.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
+		return
 	}
 	
 	user, err := authHandler.auth.RegisterUser(registerInput)
@@ -31,6 +32,7 @@ func (authHandler *AuthHandler) Register(context *gin.Context){
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
+		return
 	}
 
 	context.JSON(http.StatusCreated, gin.H{
@@ -39,3 +41,26 @@ func (authHandler *AuthHandler) Register(context *gin.Context){
 	})
 }
 
+func (authHandler *AuthHandler) Login(context *gin.Context){
+	var loginInput inbound.LoginInput
+	err := context.ShouldBindJSON(&loginInput)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	response, err := authHandler.auth.LoginUser(loginInput)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{
+		"message": "User logged in successfully!",
+		"token": response.Token,
+	})
+}

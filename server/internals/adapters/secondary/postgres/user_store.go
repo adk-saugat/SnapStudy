@@ -25,3 +25,15 @@ func (s *UserStore) CreateUser(user domain.User) (*domain.User, error) {
 	}
 	return &user, nil
 }
+
+func (s *UserStore) FindByEmail(email string) (*domain.User, error) {
+	query := `
+		SELECT id, username, email, password, created_at FROM users WHERE email = $1
+	`
+	var user domain.User
+	err := s.db.QueryRow(query, email).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}

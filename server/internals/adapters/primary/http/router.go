@@ -22,6 +22,7 @@ func (router *Router) RegisterRoutes() {
 		c.JSON(200, gin.H{"message": "Hello, World!"})
 	})
 	router.engine.POST("/register", router.authHandler.Register)
+	router.engine.POST("/login", router.authHandler.Login)
 
 }
 func (r *Router) Run(port string) error{
