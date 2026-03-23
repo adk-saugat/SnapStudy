@@ -59,8 +59,22 @@ func (authHandler *AuthHandler) Login(context *gin.Context){
 		return
 	}
 
+	const tokenMaxAgeSeconds = 60 * 60 * 24 // 24 hours
+	const secureCookie = false
+	const httpOnlyCookie = true
+
+	context.SetSameSite(http.SameSiteLaxMode)
+	context.SetCookie(
+		"access_token",
+		response.Token,
+		tokenMaxAgeSeconds,
+		"/",
+		"",
+		secureCookie,
+		httpOnlyCookie,
+	)
+
 	context.JSON(http.StatusOK, gin.H{
 		"message": "User logged in successfully!",
-		"token": response.Token,
 	})
 }

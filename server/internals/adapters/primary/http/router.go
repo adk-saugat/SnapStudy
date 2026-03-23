@@ -2,17 +2,21 @@ package http
 
 import (
 	"github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http/handlers"
+	"github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 type Router struct {
-	engine *gin.Engine
+	engine      *gin.Engine
 	authHandler *handlers.AuthHandler
 }
 
 func NewRouter(authHandler *handlers.AuthHandler) *Router {
+	engine := gin.Default()
+	engine.Use(middleware.NewCorsMiddleware())
+
 	return &Router{
-		engine: gin.Default(),
+		engine:      engine,
 		authHandler: authHandler,
 	}
 }
@@ -25,6 +29,6 @@ func (router *Router) RegisterRoutes() {
 	router.engine.POST("/login", router.authHandler.Login)
 
 }
-func (r *Router) Run(port string) error{
+func (r *Router) Run(port string) error {
 	return r.engine.Run(port)
 }
