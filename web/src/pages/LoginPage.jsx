@@ -1,10 +1,33 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
+import { loginUser } from "../api/authApi";
 
 function LoginPage() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      await loginUser(formData);
+      navigate("/dashboard");
+    } catch (submitError) {
+      setError(submitError.message || "Unable to log in");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="page-shell">
@@ -18,7 +41,7 @@ function LoginPage() {
             Welcome back! Access your lecture notes and continue studying.
           </p>
 
-          <form className="mt-6 space-y-4">
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <label className="block">
               <span className="mb-1 block text-sm font-semibold text-orange-900">
                 Email
@@ -27,6 +50,11 @@ function LoginPage() {
                 type="email"
                 className="input-minimal"
                 placeholder="you@example.com"
+                value={formData.email}
+                onChange={(event) =>
+                  setFormData((prev) => ({ ...prev, email: event.target.value }))
+                }
+                required
               />
             </label>
 
@@ -39,6 +67,14 @@ function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   className="input-minimal pr-16"
                   placeholder="********"
+                  value={formData.password}
+                  onChange={(event) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      password: event.target.value,
+                    }))
+                  }
+                  required
                 />
                 <button
                   type="button"
@@ -50,8 +86,16 @@ function LoginPage() {
               </div>
             </label>
 
+            {error ? (
+              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </p>
+            ) : null}
+
             <div className="pt-2">
-              <ActionButton type="submit">Log In</ActionButton>
+              <ActionButton type="submit">
+                {isSubmitting ? "Logging in..." : "Log In"}
+              </ActionButton>
             </div>
           </form>
 
