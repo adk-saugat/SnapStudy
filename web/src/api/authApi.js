@@ -37,3 +37,21 @@ export async function loginUser(payload) {
 
   return data;
 }
+
+export async function logoutUser() {
+  const response = await fetch(`${API_BASE_URL}/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.error || data?.message || "Logout request failed";
+    throw new Error(message);
+  }
+
+  return data;
+}

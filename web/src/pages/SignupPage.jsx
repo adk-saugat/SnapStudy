@@ -22,10 +22,11 @@ function SignupPage() {
 
     try {
       await registerUser(formData);
-      await loginUser({
+      const response = await loginUser({
         email: formData.email,
         password: formData.password,
       });
+      localStorage.setItem("snapstudy_user", JSON.stringify(response.user));
       navigate("/dashboard");
     } catch (submitError) {
       setError(submitError.message || "Unable to sign up");

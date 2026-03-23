@@ -20,7 +20,8 @@ function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await loginUser(formData);
+      const response = await loginUser(formData);
+      localStorage.setItem("snapstudy_user", JSON.stringify(response.user));
       navigate("/dashboard");
     } catch (submitError) {
       setError(submitError.message || "Unable to log in");
