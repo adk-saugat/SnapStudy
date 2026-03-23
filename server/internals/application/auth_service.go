@@ -21,9 +21,9 @@ func NewAuthService(userRepository outbound.UserRepository) *AuthService {
 
 func (s *AuthService) RegisterUser(registerInput inbound.RegisterInput) (*inbound.RegisterResponse, error) {
 	user := domain.User{
-		Username: registerInput.Username,
-		Email:    registerInput.Email,
-		Password: registerInput.Password,
+		Username:  registerInput.Username,
+		Email:     registerInput.Email,
+		Password:  registerInput.Password,
 		CreatedAt: time.Now(),
 	}
 
@@ -68,5 +68,6 @@ func (s *AuthService) LoginUser(loginInput inbound.LoginInput) (*inbound.LoginRe
 
 	return &inbound.LoginResponse{
 		Token: token,
+		User:  *user,
 	}, nil
 }

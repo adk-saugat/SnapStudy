@@ -27,6 +27,7 @@ func (router *Router) RegisterRoutes() {
 	})
 	router.engine.POST("/register", router.authHandler.Register)
 	router.engine.POST("/login", router.authHandler.Login)
+	router.engine.POST("/logout", router.authHandler.Logout)
 
 }
 func (r *Router) Run(port string) error {
