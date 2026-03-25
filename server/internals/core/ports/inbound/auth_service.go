@@ -29,6 +29,7 @@ type LoginResponse struct {
 	Token string      `json:"token"`
 }
 
+
 type AuthService interface {
 	RegisterUser(registerInput RegisterInput) (*RegisterResponse, error)
 	LoginUser(loginInput LoginInput) (*LoginResponse, error)

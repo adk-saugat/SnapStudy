@@ -36,8 +36,12 @@ func main() {
 	authService := application.NewAuthService(userStore)
 	authHandler := handlers.NewAuthHandler(authService)
 
+	lectureStore := postgres.NewLectureStore(db)
+	lectureService := application.NewLectureService(lectureStore)
+	lectureHandler := handlers.NewLectureHandler(lectureService)
+
 	// setup router
-	router := httpAdapter.NewRouter(authHandler)
+	router := httpAdapter.NewRouter(authHandler, lectureHandler)
 	router.RegisterRoutes()
 
 	// start http server	
