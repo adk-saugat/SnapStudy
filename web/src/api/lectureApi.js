@@ -1,0 +1,20 @@
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+
+export async function createLecture(payload) {
+  const response = await fetch(`${API_BASE_URL}/lectures`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.error || data?.message || "Create lecture request failed";
+    throw new Error(message);
+  }
+
+  return data;
+}
