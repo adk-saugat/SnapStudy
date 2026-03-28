@@ -18,3 +18,18 @@ export async function createLecture(payload) {
 
   return data;
 }
+
+export async function fetchUserLectures() {
+  const response = await fetch(`${API_BASE_URL}/lectures`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.error || data?.message || "Fetch lectures request failed";
+    throw new Error(message);
+  }
+
+  return data;
+}

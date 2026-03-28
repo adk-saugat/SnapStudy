@@ -1,20 +1,50 @@
-import React, { useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
-import { lectures } from "../data/lectures";
+import { fetchUserLectures } from "../api/lectureApi";
 
 function LectureDetailsPage() {
   const { lectureId } = useParams();
-  const lecture = lectures.find((item) => item.id === lectureId);
+  const [lectures, setLectures] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
 
-  if (!lecture) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  useEffect(() => {
+    const loadLectures = async () => {
+      setIsLoading(true);
+      setLoadError("");
+      try {
+        const response = await fetchUserLectures();
+        const fetchedLectures = Array.isArray(response?.lectures) ? response.lectures : [];
+        setLectures(fetchedLectures);
+      } catch (error) {
+        setLoadError(error.message || "Unable to load lecture details");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const activeChapter = lecture.chapters[activeChapterIndex];
+    loadLectures();
+  }, []);
+
+  const lecture = useMemo(
+    () => lectures.find((item) => item.id === lectureId),
+    [lectures, lectureId],
+  );
+
+  const chapters = lecture?.chapters || [];
+  const files = lecture?.files || [];
+  const activeChapter = chapters[activeChapterIndex];
+  const updatedAt = lecture?.updated_at
+    ? `Updated ${new Date(lecture.updated_at).toLocaleString()}`
+    : "Updated time unavailable";
+
+  useEffect(() => {
+    setActiveChapterIndex(0);
+  }, [lectureId]);
 
   return (
     <div className="page-shell">
@@ -30,6 +60,27 @@ function LectureDetailsPage() {
       </SiteNav>
 
       <main className="mx-auto w-[96vw] max-w-360 py-8 md:py-10">
+        {isLoading ? (
+          <p className="mb-6 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900/80">
+            Loading lecture details...
+          </p>
+        ) : null}
+        {loadError ? (
+          <p className="mb-6 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {loadError}
+          </p>
+        ) : null}
+        {!isLoading && !loadError && !lecture ? (
+          <section className="mb-6 rounded-md border border-orange-200 bg-orange-50 px-4 py-3">
+            <h1 className="text-lg font-semibold text-orange-950">Lecture not found</h1>
+            <p className="mt-1 text-sm text-orange-900/80">
+              This lecture may have been deleted or is unavailable.
+            </p>
+          </section>
+        ) : null}
+
+        {lecture ? (
+          <>
         <section className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-orange-700">
@@ -38,7 +89,7 @@ function LectureDetailsPage() {
             <h1 className="mt-1 text-3xl font-bold md:text-4xl">
               {lecture.title}
             </h1>
-            <p className="mt-1 text-sm text-orange-900/70">{lecture.updatedAt}</p>
+            <p className="mt-1 text-sm text-orange-900/70">{updatedAt}</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <ActionButton variant="secondary">Download Lecture PDF</ActionButton>
@@ -53,7 +104,12 @@ function LectureDetailsPage() {
             <p className="col-span-3 hidden md:block">Size</p>
           </div>
           <ul>
-            {lecture.files.map((file) => (
+            {files.length === 0 ? (
+              <li className="px-5 py-3 text-sm text-orange-900/75">
+                No files uploaded yet.
+              </li>
+            ) : null}
+            {files.map((file) => (
               <li
                 key={file.name}
                 className="grid grid-cols-12 items-center border-b border-orange-100 px-5 py-3 text-sm last:border-b-0"
@@ -73,13 +129,14 @@ function LectureDetailsPage() {
           </ul>
         </section>
 
-        <section className="surface overflow-hidden lg:grid lg:grid-cols-[260px_1fr]">
+        {chapters.length > 0 ? (
+          <section className="surface overflow-hidden lg:grid lg:grid-cols-[260px_1fr]">
           <aside className="border-b border-orange-200 bg-orange-50/70 p-3 lg:border-b-0 lg:border-r">
             <h2 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-orange-700">
               Chapters
             </h2>
             <div className="space-y-1">
-              {lecture.chapters.map((chapter, index) => (
+              {chapters.map((chapter, index) => (
                 <button
                   key={chapter.title}
                   type="button"
@@ -141,7 +198,14 @@ function LectureDetailsPage() {
               </ReactMarkdown>
             </div>
           </article>
-        </section>
+          </section>
+        ) : (
+          <section className="surface p-5 text-sm text-orange-900/80">
+            No chapters generated yet for this lecture.
+          </section>
+        )}
+          </>
+        ) : null}
       </main>
     </div>
   );

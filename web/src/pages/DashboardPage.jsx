@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
@@ -6,9 +6,8 @@ import DashboardHeader from "../components/dashboard/DashboardHeader";
 import DashboardStats from "../components/dashboard/DashboardStats";
 import LectureListSection from "../components/dashboard/LectureListSection";
 import CreateLectureModal from "../components/dashboard/CreateLectureModal";
-import { lectures } from "../data/lectures";
 import { logoutUser } from "../api/authApi";
-import { createLecture } from "../api/lectureApi";
+import { createLecture, fetchUserLectures } from "../api/lectureApi";
 
 function getSavedUsername() {
   try {
@@ -23,7 +22,9 @@ function getSavedUsername() {
 
 function DashboardPage() {
   const navigate = useNavigate();
-  const [lectureList, setLectureList] = useState(lectures);
+  const [lectureList, setLectureList] = useState([]);
+  const [isFetchingLectures, setIsFetchingLectures] = useState(true);
+  const [fetchLecturesError, setFetchLecturesError] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -34,6 +35,40 @@ function DashboardPage() {
     description: "",
   });
   const username = getSavedUsername();
+
+  const normalizeLecture = (lecture) => {
+    const updatedTimeLabel = lecture?.updated_at
+      ? new Date(lecture.updated_at).toLocaleString()
+      : "Unknown update time";
+
+    return {
+      id: lecture?.id,
+      title: lecture?.title || "Untitled Lecture",
+      updatedAt: `Updated ${updatedTimeLabel}`,
+      files: [],
+      chapters: [],
+    };
+  };
+
+  useEffect(() => {
+    const loadLectures = async () => {
+      setFetchLecturesError("");
+      setIsFetchingLectures(true);
+      try {
+        const response = await fetchUserLectures();
+        const fetchedLectures = Array.isArray(response?.lectures)
+          ? response.lectures.map(normalizeLecture)
+          : [];
+        setLectureList(fetchedLectures);
+      } catch (error) {
+        setFetchLecturesError(error.message || "Unable to load lectures");
+      } finally {
+        setIsFetchingLectures(false);
+      }
+    };
+
+    loadLectures();
+  }, []);
 
   const handleLogout = async () => {
     setLogoutError("");
@@ -73,13 +108,7 @@ function DashboardPage() {
 
       if (createdLecture) {
         setLectureList((prev) => [
-          {
-            id: createdLecture.id,
-            title: createdLecture.title,
-            updatedAt: "Updated just now",
-            files: [],
-            chapters: [],
-          },
+          normalizeLecture(createdLecture),
           ...prev,
         ]);
       }
@@ -139,7 +168,11 @@ function DashboardPage() {
 
         <DashboardStats stats={stats} />
 
-        <LectureListSection lectureList={lectureList} />
+        <LectureListSection
+          lectureList={lectureList}
+          isLoading={isFetchingLectures}
+          error={fetchLecturesError}
+        />
       </main>
 
       <CreateLectureModal
