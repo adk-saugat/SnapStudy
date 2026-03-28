@@ -20,4 +20,5 @@ type CreateLectureResponse struct {
 
 type LectureService interface {
 	CreateLecture(lecture CreateLectureInput) (*CreateLectureResponse, error)
+	ListUserLectures(userID string) ([]CreateLectureResponse, error)
 }

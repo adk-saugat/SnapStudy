@@ -29,3 +29,23 @@ func (s *LectureService) CreateLecture(lecture inbound.CreateLectureInput) (*inb
 		UpdatedAt:   createdLecture.UpdatedAt,
 	}, nil
 }
+
+func (s *LectureService) ListUserLectures(userID string) ([]inbound.CreateLectureResponse, error) {
+	lectures, err := s.lectureRepository.ListUserLectures(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]inbound.CreateLectureResponse, 0, len(lectures))
+	for _, lecture := range lectures {
+		responses = append(responses, inbound.CreateLectureResponse{
+			ID:          lecture.ID,
+			Title:       lecture.Title,
+			Description: lecture.Description,
+			CreatedAt:   lecture.CreatedAt,
+			UpdatedAt:   lecture.UpdatedAt,
+		})
+	}
+
+	return responses, nil
+}

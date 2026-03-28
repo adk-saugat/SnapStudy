@@ -36,3 +36,17 @@ func (handler *LectureHandler) CreateLecture(context *gin.Context) {
 		"lecture": lectureResponse,
 	})
 }
+
+func (handler *LectureHandler) ListUserLectures(context *gin.Context) {
+	userId := context.GetString("userId")
+
+	lectures, err := handler.lectureService.ListUserLectures(userId)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{
+		"lectures": lectures,
+	})
+}

@@ -43,7 +43,7 @@ func (router *Router) registerLectureRoutes() {
 	protectedLectureRoutes.Use(middleware.AuthMiddleware())
 
 	protectedLectureRoutes.POST("/lectures", router.lectureHandler.CreateLecture)
-	// protectedLectureRoutes.GET("/lectures", lectureHandler.ListLectures)
+	protectedLectureRoutes.GET("/lectures", router.lectureHandler.ListUserLectures)
 	// protectedLectureRoutes.GET("/lectures/:lectureId", lectureHandler.GetLecture)
 	// protectedLectureRoutes.PATCH("/lectures/:lectureId", lectureHandler.UpdateLecture)
 	// protectedLectureRoutes.DELETE("/lectures/:lectureId", lectureHandler.DeleteLecture)
