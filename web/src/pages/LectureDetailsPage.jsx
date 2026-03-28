@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
+import UploadLectureImagesModal from "../components/lecture/UploadLectureImagesModal";
 import { fetchUserLectures } from "../api/lectureApi";
 
 function LectureDetailsPage() {
@@ -11,6 +12,11 @@ function LectureDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [uploadError, setUploadError] = useState("");
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
 
   useEffect(() => {
     const loadLectures = async () => {
@@ -36,7 +42,7 @@ function LectureDetailsPage() {
   );
 
   const chapters = lecture?.chapters || [];
-  const files = lecture?.files || [];
+  const files = [...uploadedFiles, ...(lecture?.files || [])];
   const activeChapter = chapters[activeChapterIndex];
   const updatedAt = lecture?.updated_at
     ? `Updated ${new Date(lecture.updated_at).toLocaleString()}`
@@ -45,6 +51,49 @@ function LectureDetailsPage() {
   useEffect(() => {
     setActiveChapterIndex(0);
   }, [lectureId]);
+
+  const closeUploadModal = () => {
+    setIsUploadModalOpen(false);
+    setUploadError("");
+    setSelectedImages([]);
+  };
+
+  const handleImageFileChange = (event) => {
+    const chosenFiles = Array.from(event.target.files || []);
+    setSelectedImages(chosenFiles);
+    setUploadError("");
+  };
+
+  const formatFileSize = (sizeInBytes) => {
+    if (typeof sizeInBytes !== "number") return "Unknown size";
+    if (sizeInBytes < 1024) return `${sizeInBytes} B`;
+    if (sizeInBytes < 1024 * 1024) return `${Math.round(sizeInBytes / 1024)} KB`;
+    return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleUploadImages = async (event) => {
+    event.preventDefault();
+    setUploadError("");
+
+    if (selectedImages.length === 0) {
+      setUploadError("Please choose at least one image to upload.");
+      return;
+    }
+
+    setIsUploadingImages(true);
+    try {
+      // Placeholder for backend integration when upload endpoint is available.
+      const newUploadedFiles = selectedImages.map((file) => ({
+        name: file.name,
+        type: "Image",
+        size: formatFileSize(file.size),
+      }));
+      setUploadedFiles((prev) => [...newUploadedFiles, ...prev]);
+      closeUploadModal();
+    } finally {
+      setIsUploadingImages(false);
+    }
+  };
 
   return (
     <div className="page-shell">
@@ -93,7 +142,9 @@ function LectureDetailsPage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <ActionButton variant="secondary">Download Lecture PDF</ActionButton>
-            <ActionButton>Upload More Files</ActionButton>
+            <ActionButton onClick={() => setIsUploadModalOpen(true)}>
+              Upload Images
+            </ActionButton>
           </div>
         </section>
 
@@ -207,6 +258,15 @@ function LectureDetailsPage() {
           </>
         ) : null}
       </main>
+      <UploadLectureImagesModal
+        isOpen={isUploadModalOpen}
+        selectedImages={selectedImages}
+        error={uploadError}
+        isSubmitting={isUploadingImages}
+        onClose={closeUploadModal}
+        onSubmit={handleUploadImages}
+        onFileChange={handleImageFileChange}
+      />
     </div>
   );
 }
