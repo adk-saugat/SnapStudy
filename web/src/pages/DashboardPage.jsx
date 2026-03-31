@@ -8,6 +8,7 @@ import LectureListSection from "../components/dashboard/LectureListSection";
 import CreateLectureModal from "../components/dashboard/CreateLectureModal";
 import { logoutUser } from "../api/authApi";
 import { createLecture, fetchUserLectures } from "../api/lectureApi";
+import { formatRelativeTime } from "../lib/relativeTime";
 
 function getSavedUsername() {
   try {
@@ -37,14 +38,11 @@ function DashboardPage() {
   const username = getSavedUsername();
 
   const normalizeLecture = (lecture) => {
-    const updatedTimeLabel = lecture?.updated_at
-      ? new Date(lecture.updated_at).toLocaleString()
-      : "Unknown update time";
-
     return {
       id: lecture?.id,
       title: lecture?.title || "Untitled Lecture",
-      updatedAt: `Updated ${updatedTimeLabel}`,
+      description: lecture?.description || "",
+      updatedAt: `Updated ${formatRelativeTime(lecture?.updated_at)}`,
       files: [],
       chapters: [],
     };

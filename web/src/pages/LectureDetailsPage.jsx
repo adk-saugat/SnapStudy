@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
 import UploadLectureImagesModal from "../components/lecture/UploadLectureImagesModal";
 import { fetchUserLectures } from "../api/lectureApi";
+import { formatRelativeTime } from "../lib/relativeTime";
 
 function LectureDetailsPage() {
   const { lectureId } = useParams();
@@ -44,9 +45,7 @@ function LectureDetailsPage() {
   const chapters = lecture?.chapters || [];
   const files = [...uploadedFiles, ...(lecture?.files || [])];
   const activeChapter = chapters[activeChapterIndex];
-  const updatedAt = lecture?.updated_at
-    ? `Updated ${new Date(lecture.updated_at).toLocaleString()}`
-    : "Updated time unavailable";
+  const updatedAt = `Updated ${formatRelativeTime(lecture?.updated_at)}`;
 
   useEffect(() => {
     setActiveChapterIndex(0);
@@ -99,16 +98,21 @@ function LectureDetailsPage() {
     <div className="page-shell">
       <SiteNav>
         <div className="flex flex-wrap gap-2">
-          <ActionButton to="/dashboard" variant="secondary">
-            Back to Dashboard
-          </ActionButton>
           <ActionButton to="/login" variant="secondary">
             Log Out
           </ActionButton>
         </div>
       </SiteNav>
 
-      <main className="mx-auto w-[96vw] max-w-360 py-8 md:py-10">
+      <main className="mx-auto w-[94vw] max-w-7xl py-8 md:py-10">
+        <Link
+          to="/dashboard"
+          aria-label="Back to dashboard"
+          className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-orange-300 bg-white text-xl font-semibold text-orange-900 shadow-sm transition hover:bg-orange-100"
+        >
+          &larr;
+        </Link>
+
         {isLoading ? (
           <p className="mb-6 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900/80">
             Loading lecture details...
@@ -139,6 +143,9 @@ function LectureDetailsPage() {
               {lecture.title}
             </h1>
             <p className="mt-1 text-sm text-orange-900/70">{updatedAt}</p>
+            <p className="mt-2 max-w-3xl text-sm text-orange-900/80">
+              {lecture.description || "No description provided."}
+            </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <ActionButton variant="secondary">Download Lecture PDF</ActionButton>
