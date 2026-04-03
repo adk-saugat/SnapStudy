@@ -43,9 +43,6 @@ function LectureListSection({ lectureList, isLoading, error }) {
                 <span className="rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-900">
                   {lecture.chapters.length} chapters
                 </span>
-                <span className="rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-900">
-                  Uploaded {lecture.files.length} files
-                </span>
               </div>
               <ActionButton to={`/dashboard/lectures/${lecture.id}`}>
                 Open Lecture

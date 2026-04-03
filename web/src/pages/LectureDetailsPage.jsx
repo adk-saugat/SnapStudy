@@ -1,14 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
 import UploadLectureImagesModal from "../components/lecture/UploadLectureImagesModal";
-import { fetchUserLectures } from "../api/lectureApi";
+import { deleteLecture, fetchUserLectures, updateLecture } from "../api/lectureApi";
 import { formatRelativeTime } from "../lib/relativeTime";
 
 function LectureDetailsPage() {
   const { lectureId } = useParams();
+  const navigate = useNavigate();
   const [lectures, setLectures] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -18,6 +19,17 @@ function LectureDetailsPage() {
   const [uploadError, setUploadError] = useState("");
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isSavingLectureEdit, setIsSavingLectureEdit] = useState(false);
+  const [isDeletingLecture, setIsDeletingLecture] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+  });
+  const actionsMenuRef = useRef(null);
 
   useEffect(() => {
     const loadLectures = async () => {
@@ -50,6 +62,21 @@ function LectureDetailsPage() {
   useEffect(() => {
     setActiveChapterIndex(0);
   }, [lectureId]);
+
+  useEffect(() => {
+    if (!isActionMenuOpen) return undefined;
+
+    const handleOutsideClick = (event) => {
+      if (!actionsMenuRef.current?.contains(event.target)) {
+        setIsActionMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isActionMenuOpen]);
 
   const closeUploadModal = () => {
     setIsUploadModalOpen(false);
@@ -94,6 +121,79 @@ function LectureDetailsPage() {
     }
   };
 
+  const handleOpenEditModal = () => {
+    setActionError("");
+    setEditForm({
+      title: lecture?.title || "",
+      description: lecture?.description || "",
+    });
+    setIsActionMenuOpen(false);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditLecture = async (event) => {
+    event.preventDefault();
+    setActionError("");
+
+    const normalizedTitle = editForm.title.trim() || "Untitled Lecture";
+    const normalizedDescription = editForm.description.trim();
+
+    setIsSavingLectureEdit(true);
+    try {
+      const response = await updateLecture(lectureId, {
+        title: normalizedTitle,
+        description: normalizedDescription,
+      });
+
+      const updatedLecture = response?.lecture;
+      setLectures((prev) =>
+        prev.map((item) => {
+          if (item.id !== lectureId) return item;
+          if (!updatedLecture) {
+            return {
+              ...item,
+              title: normalizedTitle,
+              description: normalizedDescription,
+              updated_at: new Date().toISOString(),
+            };
+          }
+
+          return {
+            ...item,
+            ...updatedLecture,
+          };
+        }),
+      );
+      setIsEditModalOpen(false);
+    } catch (error) {
+      setActionError(error.message || "Unable to update lecture");
+    } finally {
+      setIsSavingLectureEdit(false);
+    }
+  };
+
+  const handleOpenDeleteModal = () => {
+    setIsActionMenuOpen(false);
+    setActionError("");
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteLecture = async () => {
+    setActionError("");
+
+    setIsDeletingLecture(true);
+    try {
+      await deleteLecture(lectureId);
+      setLectures((prev) => prev.filter((item) => item.id !== lectureId));
+      setIsDeleteModalOpen(false);
+      navigate("/dashboard");
+    } catch (error) {
+      setActionError(error.message || "Unable to delete lecture");
+    } finally {
+      setIsDeletingLecture(false);
+    }
+  };
+
   return (
     <div className="page-shell">
       <SiteNav>
@@ -123,6 +223,11 @@ function LectureDetailsPage() {
             {loadError}
           </p>
         ) : null}
+        {actionError ? (
+          <p className="mb-6 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {actionError}
+          </p>
+        ) : null}
         {!isLoading && !loadError && !lecture ? (
           <section className="mb-6 rounded-md border border-orange-200 bg-orange-50 px-4 py-3">
             <h1 className="text-lg font-semibold text-orange-950">Lecture not found</h1>
@@ -142,16 +247,48 @@ function LectureDetailsPage() {
             <h1 className="mt-1 text-3xl font-bold md:text-4xl">
               {lecture.title}
             </h1>
-            <p className="mt-1 text-sm text-orange-900/70">{updatedAt}</p>
-            <p className="mt-2 max-w-3xl text-sm text-orange-900/80">
+            <p className="mt-2 max-w-3xl text-base leading-7 text-orange-900/80">
               {lecture.description || "No description provided."}
             </p>
+            <p className="mt-2 text-sm text-orange-900/70">{updatedAt}</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <ActionButton variant="secondary">Download Lecture PDF</ActionButton>
             <ActionButton onClick={() => setIsUploadModalOpen(true)}>
               Upload Images
             </ActionButton>
+            <div className="relative" ref={actionsMenuRef}>
+              <button
+                type="button"
+                aria-label="Lecture actions"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-orange-300 bg-white text-lg font-semibold text-orange-900 transition hover:bg-orange-100"
+                onClick={() => setIsActionMenuOpen((prev) => !prev)}
+                style={{ cursor: "pointer" }}
+              >
+                &#8942;
+              </button>
+              {isActionMenuOpen ? (
+                <div className="absolute right-0 z-20 mt-2 w-44 rounded-md border border-orange-200 bg-white py-1 shadow-lg">
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-sm text-orange-900 hover:bg-orange-100"
+                    onClick={handleOpenEditModal}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Edit lecture
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+                    onClick={handleOpenDeleteModal}
+                    style={{ cursor: isDeletingLecture ? "not-allowed" : "pointer" }}
+                    disabled={isDeletingLecture}
+                  >
+                    {isDeletingLecture ? "Deleting..." : "Delete lecture"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </section>
 
@@ -274,6 +411,116 @@ function LectureDetailsPage() {
         onSubmit={handleUploadImages}
         onFileChange={handleImageFileChange}
       />
+      {isEditModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">
+          <section className="surface w-full max-w-lg p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-bold text-orange-950">Edit Lecture</h3>
+                <p className="mt-1 text-sm text-orange-900/75">
+                  Update lecture title and description.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="cursor-pointer rounded-md px-2 py-1 text-sm font-semibold text-orange-700 hover:bg-orange-100"
+                onClick={() => setIsEditModalOpen(false)}
+                disabled={isSavingLectureEdit}
+              >
+                Close
+              </button>
+            </div>
+            <form className="space-y-4" onSubmit={handleSaveEditLecture}>
+              <label className="block">
+                <span className="mb-1 block text-sm font-semibold text-orange-900">
+                  Lecture Title
+                </span>
+                <input
+                  type="text"
+                  className="input-minimal"
+                  value={editForm.title}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({ ...prev, title: event.target.value }))
+                  }
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-semibold text-orange-900">
+                  Description
+                </span>
+                <textarea
+                  className="input-minimal min-h-24 resize-y"
+                  value={editForm.description}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      description: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <div className="flex justify-end gap-2 pt-2">
+                <ActionButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsEditModalOpen(false)}
+                  disabled={isSavingLectureEdit}
+                >
+                  Cancel
+                </ActionButton>
+                <ActionButton type="submit" disabled={isSavingLectureEdit}>
+                  {isSavingLectureEdit ? "Saving..." : "Save Changes"}
+                </ActionButton>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+      {isDeleteModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">
+          <section className="surface w-full max-w-lg p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-bold text-orange-950">Delete Lecture</h3>
+                <p className="mt-1 text-sm text-orange-900/75">
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold">{lecture?.title || "this lecture"}</span>?
+                </p>
+                <p className="mt-1 text-sm text-red-700">
+                  This action cannot be undone.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="cursor-pointer rounded-md px-2 py-1 text-sm font-semibold text-orange-700 hover:bg-orange-100"
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={isDeletingLecture}
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <ActionButton
+                type="button"
+                variant="secondary"
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={isDeletingLecture}
+              >
+                Cancel
+              </ActionButton>
+              <button
+                type="button"
+                className="inline-flex cursor-pointer items-center justify-center rounded-md border border-red-700 bg-red-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={handleDeleteLecture}
+                disabled={isDeletingLecture}
+              >
+                {isDeletingLecture ? "Deleting..." : "Delete Lecture"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

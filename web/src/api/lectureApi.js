@@ -33,3 +33,37 @@ export async function fetchUserLectures() {
 
   return data;
 }
+
+export async function updateLecture(lectureId, payload) {
+  const response = await fetch(`${API_BASE_URL}/lectures/${lectureId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.error || data?.message || "Update lecture request failed";
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+export async function deleteLecture(lectureId) {
+  const response = await fetch(`${API_BASE_URL}/lectures/${lectureId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.error || data?.message || "Delete lecture request failed";
+    throw new Error(message);
+  }
+
+  return data;
+}
