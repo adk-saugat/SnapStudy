@@ -11,7 +11,7 @@ func NewCorsMiddleware() gin.HandlerFunc {
 	webUrl := os.Getenv("WEB_URL")
 	return ginCors.New(ginCors.Config{
 		AllowOrigins:     []string{webUrl},
-		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
 		AllowCredentials: true,
 	})

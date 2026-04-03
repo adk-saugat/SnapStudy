@@ -49,3 +49,34 @@ func (s *LectureService) ListUserLectures(userID string) ([]inbound.CreateLectur
 
 	return responses, nil
 }
+
+func (s *LectureService) UpdateLecture(lecture inbound.UpdateLectureInput) (*inbound.CreateLectureResponse, error) {
+	lectureDomain := domain.Lecture{
+		ID:          lecture.LectureID,
+		UserID:      lecture.UserID,
+		Title:       lecture.Title,
+		Description: lecture.Description,
+	}
+
+	updatedLecture, err := s.lectureRepository.UpdateLecture(lectureDomain)
+	if err != nil {
+		return nil, err
+	}
+
+	return &inbound.CreateLectureResponse{
+		ID:          updatedLecture.ID,
+		Title:       updatedLecture.Title,
+		Description: updatedLecture.Description,
+		CreatedAt:   updatedLecture.CreatedAt,
+		UpdatedAt:   updatedLecture.UpdatedAt,
+	}, nil
+}
+
+func (s *LectureService) DeleteLecture(userID, lectureID string) error {
+	err := s.lectureRepository.DeleteLecture(userID, lectureID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

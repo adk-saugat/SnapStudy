@@ -44,9 +44,9 @@ func (router *Router) registerLectureRoutes() {
 
 	protectedLectureRoutes.POST("/lectures", router.lectureHandler.CreateLecture)
 	protectedLectureRoutes.GET("/lectures", router.lectureHandler.ListUserLectures)
+	protectedLectureRoutes.PATCH("/lectures/:lectureId", router.lectureHandler.UpdateLecture)
+	protectedLectureRoutes.DELETE("/lectures/:lectureId", router.lectureHandler.DeleteLecture)
 	// protectedLectureRoutes.GET("/lectures/:lectureId", lectureHandler.GetLecture)
-	// protectedLectureRoutes.PATCH("/lectures/:lectureId", lectureHandler.UpdateLecture)
-	// protectedLectureRoutes.DELETE("/lectures/:lectureId", lectureHandler.DeleteLecture)
 	// protectedLectureRoutes.POST("/lectures/:lectureId/chapters", lectureHandler.CreateChapter)
 	// protectedLectureRoutes.GET("/lectures/:lectureId/chapters", lectureHandler.ListChapters)
 	// protectedLectureRoutes.PATCH("/lectures/:lectureId/chapters/:chapterId", lectureHandler.UpdateChapter)
