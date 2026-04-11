@@ -1,48 +1,51 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
+import DeleteLectureModal from "../components/lecture/DeleteLectureModal";
+import EditLectureModal from "../components/lecture/EditLectureModal";
+import LectureChaptersSection from "../components/lecture/LectureChaptersSection";
+import LectureDetailsAlerts from "../components/lecture/LectureDetailsAlerts";
+import LectureDetailsHeader from "../components/lecture/LectureDetailsHeader";
+import LectureFilesTable from "../components/lecture/LectureFilesTable";
 import UploadLectureImagesModal from "../components/lecture/UploadLectureImagesModal";
-import { deleteLecture, fetchUserLectures, updateLecture } from "../api/lectureApi";
+import {
+  deleteLecture,
+  fetchUserLectures,
+  updateLecture,
+  uploadLectureImage,
+} from "../api/lectureApi";
+import { formatFileSize } from "../lib/formatFileSize";
 import { formatRelativeTime } from "../lib/relativeTime";
 
 function LectureDetailsPage() {
   const { lectureId } = useParams();
   const navigate = useNavigate();
   const [lectures, setLectures] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadState, setLoadState] = useState({ status: "loading" });
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [selectedImages, setSelectedImages] = useState([]);
-  const [uploadError, setUploadError] = useState("");
-  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [overlay, setOverlay] = useState(null);
+  const [pending, setPending] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isSavingLectureEdit, setIsSavingLectureEdit] = useState(false);
-  const [isDeletingLecture, setIsDeletingLecture] = useState(false);
   const [actionError, setActionError] = useState("");
-  const [editForm, setEditForm] = useState({
-    title: "",
-    description: "",
-  });
   const actionsMenuRef = useRef(null);
 
   useEffect(() => {
     const loadLectures = async () => {
-      setIsLoading(true);
-      setLoadError("");
+      setLoadState({ status: "loading" });
       try {
         const response = await fetchUserLectures();
-        const fetchedLectures = Array.isArray(response?.lectures) ? response.lectures : [];
+        const fetchedLectures = Array.isArray(response?.lectures)
+          ? response.lectures
+          : [];
         setLectures(fetchedLectures);
+        setLoadState({ status: "ok" });
       } catch (error) {
-        setLoadError(error.message || "Unable to load lecture details");
-      } finally {
-        setIsLoading(false);
+        setLoadState({
+          status: "error",
+          message: error.message || "Unable to load lecture details",
+        });
       }
     };
 
@@ -58,6 +61,9 @@ function LectureDetailsPage() {
   const files = [...uploadedFiles, ...(lecture?.files || [])];
   const activeChapter = chapters[activeChapterIndex];
   const updatedAt = `Updated ${formatRelativeTime(lecture?.updated_at)}`;
+
+  const isLoading = loadState.status === "loading";
+  const loadError = loadState.status === "error" ? loadState.message : "";
 
   useEffect(() => {
     setActiveChapterIndex(0);
@@ -78,67 +84,87 @@ function LectureDetailsPage() {
     };
   }, [isActionMenuOpen]);
 
-  const closeUploadModal = () => {
-    setIsUploadModalOpen(false);
-    setUploadError("");
-    setSelectedImages([]);
-  };
+  const closeOverlay = () => setOverlay(null);
 
   const handleImageFileChange = (event) => {
     const chosenFiles = Array.from(event.target.files || []);
-    setSelectedImages(chosenFiles);
-    setUploadError("");
-  };
-
-  const formatFileSize = (sizeInBytes) => {
-    if (typeof sizeInBytes !== "number") return "Unknown size";
-    if (sizeInBytes < 1024) return `${sizeInBytes} B`;
-    if (sizeInBytes < 1024 * 1024) return `${Math.round(sizeInBytes / 1024)} KB`;
-    return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
+    setOverlay((prev) =>
+      prev?.type === "upload" ? { ...prev, files: chosenFiles, error: "" } : prev,
+    );
   };
 
   const handleUploadImages = async (event) => {
     event.preventDefault();
-    setUploadError("");
+    if (overlay?.type !== "upload") return;
 
-    if (selectedImages.length === 0) {
-      setUploadError("Please choose at least one image to upload.");
+    setOverlay((prev) => (prev?.type === "upload" ? { ...prev, error: "" } : prev));
+
+    if (overlay.files.length === 0) {
+      setOverlay((prev) =>
+        prev?.type === "upload"
+          ? { ...prev, error: "Please choose at least one image to upload." }
+          : prev,
+      );
       return;
     }
 
-    setIsUploadingImages(true);
+    const filesToUpload = overlay.files;
+    setPending("upload");
     try {
-      // Placeholder for backend integration when upload endpoint is available.
-      const newUploadedFiles = selectedImages.map((file) => ({
+      for (const file of filesToUpload) {
+        const result = await uploadLectureImage(lectureId, file);
+        console.log("UploadFile response:", result);
+      }
+
+      const newUploadedFiles = filesToUpload.map((file) => ({
         name: file.name,
         type: "Image",
         size: formatFileSize(file.size),
       }));
       setUploadedFiles((prev) => [...newUploadedFiles, ...prev]);
-      closeUploadModal();
+      closeOverlay();
+    } catch (error) {
+      setOverlay((prev) =>
+        prev?.type === "upload"
+          ? { ...prev, error: error.message || "Upload failed" }
+          : prev,
+      );
     } finally {
-      setIsUploadingImages(false);
+      setPending(null);
     }
   };
 
   const handleOpenEditModal = () => {
     setActionError("");
-    setEditForm({
+    setOverlay({
+      type: "edit",
       title: lecture?.title || "",
       description: lecture?.description || "",
     });
     setIsActionMenuOpen(false);
-    setIsEditModalOpen(true);
+  };
+
+  const handleEditFormChange = (updater) => {
+    setOverlay((prev) => {
+      if (prev?.type !== "edit") return prev;
+      const next =
+        typeof updater === "function"
+          ? updater({ title: prev.title, description: prev.description })
+          : updater;
+      return { type: "edit", title: next.title, description: next.description };
+    });
   };
 
   const handleSaveEditLecture = async (event) => {
     event.preventDefault();
+    if (overlay?.type !== "edit") return;
+
     setActionError("");
 
-    const normalizedTitle = editForm.title.trim() || "Untitled Lecture";
-    const normalizedDescription = editForm.description.trim();
+    const normalizedTitle = overlay.title.trim() || "Untitled Lecture";
+    const normalizedDescription = overlay.description.trim();
 
-    setIsSavingLectureEdit(true);
+    setPending("save");
     try {
       const response = await updateLecture(lectureId, {
         title: normalizedTitle,
@@ -164,35 +190,40 @@ function LectureDetailsPage() {
           };
         }),
       );
-      setIsEditModalOpen(false);
+      closeOverlay();
     } catch (error) {
       setActionError(error.message || "Unable to update lecture");
     } finally {
-      setIsSavingLectureEdit(false);
+      setPending(null);
     }
   };
 
   const handleOpenDeleteModal = () => {
     setIsActionMenuOpen(false);
     setActionError("");
-    setIsDeleteModalOpen(true);
+    setOverlay({ type: "delete" });
   };
 
   const handleDeleteLecture = async () => {
     setActionError("");
 
-    setIsDeletingLecture(true);
+    setPending("delete");
     try {
       await deleteLecture(lectureId);
       setLectures((prev) => prev.filter((item) => item.id !== lectureId));
-      setIsDeleteModalOpen(false);
+      closeOverlay();
       navigate("/dashboard");
     } catch (error) {
       setActionError(error.message || "Unable to delete lecture");
     } finally {
-      setIsDeletingLecture(false);
+      setPending(null);
     }
   };
+
+  const showNotFound = loadState.status === "ok" && !lecture;
+
+  const uploadOverlay = overlay?.type === "upload" ? overlay : null;
+  const editOverlay = overlay?.type === "edit" ? overlay : null;
 
   return (
     <div className="page-shell">
@@ -213,314 +244,69 @@ function LectureDetailsPage() {
           &larr;
         </Link>
 
-        {isLoading ? (
-          <p className="mb-6 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900/80">
-            Loading lecture details...
-          </p>
-        ) : null}
-        {loadError ? (
-          <p className="mb-6 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {loadError}
-          </p>
-        ) : null}
-        {actionError ? (
-          <p className="mb-6 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {actionError}
-          </p>
-        ) : null}
-        {!isLoading && !loadError && !lecture ? (
-          <section className="mb-6 rounded-md border border-orange-200 bg-orange-50 px-4 py-3">
-            <h1 className="text-lg font-semibold text-orange-950">Lecture not found</h1>
-            <p className="mt-1 text-sm text-orange-900/80">
-              This lecture may have been deleted or is unavailable.
-            </p>
-          </section>
-        ) : null}
+        <LectureDetailsAlerts
+          isLoading={isLoading}
+          loadError={loadError}
+          actionError={actionError}
+          showNotFound={showNotFound}
+        />
 
         {lecture ? (
           <>
-        <section className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-orange-700">
-              Lecture Details
-            </p>
-            <h1 className="mt-1 text-3xl font-bold md:text-4xl">
-              {lecture.title}
-            </h1>
-            <p className="mt-2 max-w-3xl text-base leading-7 text-orange-900/80">
-              {lecture.description || "No description provided."}
-            </p>
-            <p className="mt-2 text-sm text-orange-900/70">{updatedAt}</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <ActionButton variant="secondary">Download Lecture PDF</ActionButton>
-            <ActionButton onClick={() => setIsUploadModalOpen(true)}>
-              Upload Images
-            </ActionButton>
-            <div className="relative" ref={actionsMenuRef}>
-              <button
-                type="button"
-                aria-label="Lecture actions"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-orange-300 bg-white text-lg font-semibold text-orange-900 transition hover:bg-orange-100"
-                onClick={() => setIsActionMenuOpen((prev) => !prev)}
-                style={{ cursor: "pointer" }}
-              >
-                &#8942;
-              </button>
-              {isActionMenuOpen ? (
-                <div className="absolute right-0 z-20 mt-2 w-44 rounded-md border border-orange-200 bg-white py-1 shadow-lg">
-                  <button
-                    type="button"
-                    className="block w-full px-3 py-2 text-left text-sm text-orange-900 hover:bg-orange-100"
-                    onClick={handleOpenEditModal}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Edit lecture
-                  </button>
-                  <button
-                    type="button"
-                    className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                    onClick={handleOpenDeleteModal}
-                    style={{ cursor: isDeletingLecture ? "not-allowed" : "pointer" }}
-                    disabled={isDeletingLecture}
-                  >
-                    {isDeletingLecture ? "Deleting..." : "Delete lecture"}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </section>
+            <LectureDetailsHeader
+              lecture={lecture}
+              updatedAt={updatedAt}
+              actionsMenuRef={actionsMenuRef}
+              isActionMenuOpen={isActionMenuOpen}
+              onToggleActionMenu={() => setIsActionMenuOpen((prev) => !prev)}
+              onUploadImages={() =>
+                setOverlay({ type: "upload", files: [], error: "" })
+              }
+              onEditLecture={handleOpenEditModal}
+              onDeleteLecture={handleOpenDeleteModal}
+              isDeletingLecture={pending === "delete"}
+            />
 
-        <section className="surface mb-5 overflow-hidden">
-          <div className="grid grid-cols-12 border-b border-orange-200 bg-orange-100 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-orange-800">
-            <p className="col-span-12 md:col-span-6">Uploaded Files</p>
-            <p className="col-span-3 hidden md:block">Type</p>
-            <p className="col-span-3 hidden md:block">Size</p>
-          </div>
-          <ul>
-            {files.length === 0 ? (
-              <li className="px-5 py-3 text-sm text-orange-900/75">
-                No files uploaded yet.
-              </li>
-            ) : null}
-            {files.map((file) => (
-              <li
-                key={file.name}
-                className="grid grid-cols-12 items-center border-b border-orange-100 px-5 py-3 text-sm last:border-b-0"
-              >
-                <div className="col-span-12 md:col-span-6">
-                  <p className="font-medium text-orange-950">{file.name}</p>
-                  <p className="mt-1 text-xs text-orange-900/70 md:hidden">
-                    {file.type} - {file.size}
-                  </p>
-                </div>
-                <p className="col-span-3 hidden text-orange-900/75 md:block">
-                  {file.type}
-                </p>
-                <p className="col-span-3 hidden font-medium md:block">{file.size}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
+            <LectureFilesTable files={files} />
 
-        {chapters.length > 0 ? (
-          <section className="surface overflow-hidden lg:grid lg:grid-cols-[260px_1fr]">
-          <aside className="border-b border-orange-200 bg-orange-50/70 p-3 lg:border-b-0 lg:border-r">
-            <h2 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-orange-700">
-              Chapters
-            </h2>
-            <div className="space-y-1">
-              {chapters.map((chapter, index) => (
-                <button
-                  key={chapter.title}
-                  type="button"
-                  onClick={() => setActiveChapterIndex(index)}
-                  className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
-                    activeChapterIndex === index
-                      ? "bg-orange-500 font-semibold text-white"
-                      : "border border-orange-200 bg-white text-orange-900 hover:bg-orange-100"
-                  }`}
-                  style={{ cursor: "pointer" }}
-                >
-                  Chapter {index + 1}
-                </button>
-              ))}
-            </div>
-          </aside>
-
-          <article className="p-4 md:p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-orange-200 pb-3">
-              <h2 className="text-lg font-bold text-orange-950 md:text-xl">
-                {activeChapter.title}
-              </h2>
-              <ActionButton variant="secondary">Download Chapter PDF</ActionButton>
-            </div>
-            <div className="rounded-lg border border-orange-200 bg-white p-4 text-orange-900 md:p-5">
-              <ReactMarkdown
-                components={{
-                  h2: ({ children }) => (
-                    <h2 className="mb-3 text-lg font-bold md:text-xl">
-                      {children}
-                    </h2>
-                  ),
-                  h3: ({ children }) => (
-                    <h3 className="mb-2 mt-4 text-base font-semibold md:text-lg">
-                      {children}
-                    </h3>
-                  ),
-                  p: ({ children }) => (
-                    <p className="mb-3 text-sm leading-6 md:text-base">{children}</p>
-                  ),
-                  ul: ({ children }) => (
-                    <ul className="mb-3 list-disc space-y-1 pl-5 text-sm leading-6 md:text-base">
-                      {children}
-                    </ul>
-                  ),
-                  code: ({ children }) => (
-                    <code className="rounded bg-orange-100 px-1.5 py-0.5 font-mono text-xs text-orange-950 md:text-sm">
-                      {children}
-                    </code>
-                  ),
-                  pre: ({ children }) => (
-                    <pre className="mb-3 overflow-x-auto rounded-lg border border-orange-100 bg-orange-50 p-3">
-                      {children}
-                    </pre>
-                  ),
-                }}
-              >
-                {activeChapter.markdown}
-              </ReactMarkdown>
-            </div>
-          </article>
-          </section>
-        ) : (
-          <section className="surface p-5 text-sm text-orange-900/80">
-            No chapters generated yet for this lecture.
-          </section>
-        )}
+            <LectureChaptersSection
+              chapters={chapters}
+              activeChapterIndex={activeChapterIndex}
+              onSelectChapter={setActiveChapterIndex}
+              activeChapter={activeChapter}
+            />
           </>
         ) : null}
       </main>
+
       <UploadLectureImagesModal
-        isOpen={isUploadModalOpen}
-        selectedImages={selectedImages}
-        error={uploadError}
-        isSubmitting={isUploadingImages}
-        onClose={closeUploadModal}
+        isOpen={uploadOverlay != null}
+        selectedImages={uploadOverlay?.files ?? []}
+        error={uploadOverlay?.error ?? ""}
+        isSubmitting={pending === "upload"}
+        onClose={closeOverlay}
         onSubmit={handleUploadImages}
         onFileChange={handleImageFileChange}
       />
-      {isEditModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">
-          <section className="surface w-full max-w-lg p-6 shadow-xl">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-xl font-bold text-orange-950">Edit Lecture</h3>
-                <p className="mt-1 text-sm text-orange-900/75">
-                  Update lecture title and description.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="cursor-pointer rounded-md px-2 py-1 text-sm font-semibold text-orange-700 hover:bg-orange-100"
-                onClick={() => setIsEditModalOpen(false)}
-                disabled={isSavingLectureEdit}
-              >
-                Close
-              </button>
-            </div>
-            <form className="space-y-4" onSubmit={handleSaveEditLecture}>
-              <label className="block">
-                <span className="mb-1 block text-sm font-semibold text-orange-900">
-                  Lecture Title
-                </span>
-                <input
-                  type="text"
-                  className="input-minimal"
-                  value={editForm.title}
-                  onChange={(event) =>
-                    setEditForm((prev) => ({ ...prev, title: event.target.value }))
-                  }
-                  required
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-sm font-semibold text-orange-900">
-                  Description
-                </span>
-                <textarea
-                  className="input-minimal min-h-24 resize-y"
-                  value={editForm.description}
-                  onChange={(event) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      description: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <div className="flex justify-end gap-2 pt-2">
-                <ActionButton
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setIsEditModalOpen(false)}
-                  disabled={isSavingLectureEdit}
-                >
-                  Cancel
-                </ActionButton>
-                <ActionButton type="submit" disabled={isSavingLectureEdit}>
-                  {isSavingLectureEdit ? "Saving..." : "Save Changes"}
-                </ActionButton>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
-      {isDeleteModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">
-          <section className="surface w-full max-w-lg p-6 shadow-xl">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-xl font-bold text-orange-950">Delete Lecture</h3>
-                <p className="mt-1 text-sm text-orange-900/75">
-                  Are you sure you want to delete{" "}
-                  <span className="font-semibold">{lecture?.title || "this lecture"}</span>?
-                </p>
-                <p className="mt-1 text-sm text-red-700">
-                  This action cannot be undone.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="cursor-pointer rounded-md px-2 py-1 text-sm font-semibold text-orange-700 hover:bg-orange-100"
-                onClick={() => setIsDeleteModalOpen(false)}
-                disabled={isDeletingLecture}
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <ActionButton
-                type="button"
-                variant="secondary"
-                onClick={() => setIsDeleteModalOpen(false)}
-                disabled={isDeletingLecture}
-              >
-                Cancel
-              </ActionButton>
-              <button
-                type="button"
-                className="inline-flex cursor-pointer items-center justify-center rounded-md border border-red-700 bg-red-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={handleDeleteLecture}
-                disabled={isDeletingLecture}
-              >
-                {isDeletingLecture ? "Deleting..." : "Delete Lecture"}
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
+      <EditLectureModal
+        isOpen={editOverlay != null}
+        editForm={
+          editOverlay
+            ? { title: editOverlay.title, description: editOverlay.description }
+            : { title: "", description: "" }
+        }
+        onEditFormChange={handleEditFormChange}
+        onSubmit={handleSaveEditLecture}
+        onClose={closeOverlay}
+        isSaving={pending === "save"}
+      />
+      <DeleteLectureModal
+        isOpen={overlay?.type === "delete"}
+        lectureTitle={lecture?.title}
+        onConfirm={handleDeleteLecture}
+        onClose={closeOverlay}
+        isDeleting={pending === "delete"}
+      />
     </div>
   );
 }

@@ -67,3 +67,25 @@ export async function deleteLecture(lectureId) {
 
   return data;
 }
+
+/**
+ * POST /lectures/:lectureId/files — multipart field name must be "image" (matches server).
+ */
+export async function uploadLectureImage(lectureId, file) {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await fetch(`${API_BASE_URL}/lectures/${lectureId}/files`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.error || data?.message || "Upload image request failed";
+    throw new Error(message);
+  }
+
+  return data;
+}
