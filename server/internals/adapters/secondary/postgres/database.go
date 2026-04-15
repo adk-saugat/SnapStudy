@@ -3,12 +3,15 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
+	"strings"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func NewDB(databaseURL string) (*sql.DB, error) {
-	db, err := sql.Open("postgres", databaseURL)
+	connString := withSimpleProtocol(databaseURL)
+	db, err := sql.Open("pgx", connString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open connection: %w", err)
 	}
@@ -21,4 +24,19 @@ func NewDB(databaseURL string) (*sql.DB, error) {
 	db.SetMaxIdleConns(5)
 
 	return db, nil
+}
+
+func withSimpleProtocol(databaseURL string) string {
+	u, err := url.Parse(databaseURL)
+	if err != nil {
+		return databaseURL
+	}
+
+	query := u.Query()
+	if strings.EqualFold(query.Get("default_query_exec_mode"), "simple_protocol") {
+		return databaseURL
+	}
+	query.Set("default_query_exec_mode", "simple_protocol")
+	u.RawQuery = query.Encode()
+	return u.String()
 }

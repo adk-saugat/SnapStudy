@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
+	"github.com/adk-saugat/snapstudy/server/internals/application"
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/inbound"
 	"github.com/gin-gonic/gin"
 )
@@ -95,5 +98,74 @@ func (handler *LectureHandler) DeleteLecture(context *gin.Context) {
 
 	context.JSON(http.StatusOK, gin.H{
 		"message": "Lecture deleted successfully",
+	})
+}
+
+func (handler *LectureHandler) UploadFile(context *gin.Context) {
+	userID := context.GetString("userId")
+	lectureID := context.Param("lectureId")
+
+	fileHeader, err := context.FormFile("image")
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "image is required"})
+		return
+	}
+
+	contentType := fileHeader.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "image/") {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "uploaded file must be an image"})
+		return
+	}
+
+	src, err := fileHeader.Open()
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer src.Close()
+
+	objectKey, err := handler.lectureService.UploadLectureFile(
+		context.Request.Context(),
+		userID,
+		lectureID,
+		fileHeader.Filename,
+		fileHeader.Size,
+		src,
+		contentType,
+	)
+	if err != nil {
+		if errors.Is(err, application.ErrLectureNotFound) {
+			context.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	context.JSON(http.StatusAccepted, gin.H{
+		"message":    "File uploaded successfully",
+		"lecture_id": lectureID,
+		"object_key": objectKey,
+		"file": gin.H{
+			"name":       fileHeader.Filename,
+			"size_bytes": fileHeader.Size,
+			"type":       contentType,
+		},
+	})
+}
+
+func (handler *LectureHandler) ListFiles(context *gin.Context) {
+	userID := context.GetString("userId")
+	lectureID := context.Param("lectureId")
+
+	files, err := handler.lectureService.ListLectureFiles(context.Request.Context(), userID, lectureID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{
+		"lecture_id": lectureID,
+		"files":      files,
 	})
 }

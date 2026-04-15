@@ -1,6 +1,8 @@
 package inbound
 
 import (
+	"context"
+	"io"
 	"time"
 )
 
@@ -25,9 +27,17 @@ type CreateLectureResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+type LectureFileListItem struct {
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	SizeBytes int64  `json:"size_bytes"`
+}
+
 type LectureService interface {
 	CreateLecture(lecture CreateLectureInput) (*CreateLectureResponse, error)
 	ListUserLectures(userID string) ([]CreateLectureResponse, error)
 	UpdateLecture(lecture UpdateLectureInput) (*CreateLectureResponse, error)
 	DeleteLecture(userID, lectureID string) error
+	UploadLectureFile(ctx context.Context, userID, lectureID, filename string, sizeBytes int64, body io.Reader, contentType string) (objectKey string, err error)
+	ListLectureFiles(ctx context.Context, userID, lectureID string) ([]LectureFileListItem, error)
 }

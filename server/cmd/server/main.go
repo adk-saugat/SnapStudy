@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
 	httpAdapter "github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http"
 	"github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http/handlers"
 	"github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/postgres"
+	s3storage "github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/s3"
 	"github.com/adk-saugat/snapstudy/server/internals/application"
 	"github.com/joho/godotenv"
 )
@@ -37,7 +39,22 @@ func main() {
 	authHandler := handlers.NewAuthHandler(authService)
 
 	lectureStore := postgres.NewLectureStore(db)
-	lectureService := application.NewLectureService(lectureStore)
+	lectureFileStore := postgres.NewLectureFileStore(db)
+
+	s3Bucket := os.Getenv("S3_BUCKET")
+	awsRegion := os.Getenv("AWS_REGION")
+	if awsRegion == "" {
+		awsRegion = "us-east-1"
+	}
+	if s3Bucket == "" {
+		log.Fatal("S3_BUCKET is required")
+	}
+	objectStorage, err := s3storage.NewUploader(context.Background(), s3Bucket, awsRegion)
+	if err != nil {
+		log.Fatalf("failed to init S3 transfer manager: %v", err)
+	}
+
+	lectureService := application.NewLectureService(lectureStore, lectureFileStore, objectStorage)
 	lectureHandler := handlers.NewLectureHandler(lectureService)
 
 	// setup router

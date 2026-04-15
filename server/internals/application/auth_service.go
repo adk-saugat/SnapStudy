@@ -6,7 +6,7 @@ import (
 
 	"github.com/adk-saugat/snapstudy/server/internals/core/domain"
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/inbound"
-	"github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound"
+	outbound "github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/postgres"
 	"github.com/adk-saugat/snapstudy/server/pkg/hasher"
 	"github.com/adk-saugat/snapstudy/server/pkg/jwt"
 )

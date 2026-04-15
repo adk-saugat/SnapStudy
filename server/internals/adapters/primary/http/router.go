@@ -51,8 +51,8 @@ func (router *Router) registerLectureRoutes() {
 	// protectedLectureRoutes.GET("/lectures/:lectureId/chapters", lectureHandler.ListChapters)
 	// protectedLectureRoutes.PATCH("/lectures/:lectureId/chapters/:chapterId", lectureHandler.UpdateChapter)
 	// protectedLectureRoutes.DELETE("/lectures/:lectureId/chapters/:chapterId", lectureHandler.DeleteChapter)
-	// protectedLectureRoutes.POST("/lectures/:lectureId/files", lectureHandler.UploadFile)
-	// protectedLectureRoutes.GET("/lectures/:lectureId/files", lectureHandler.ListFiles)
+	protectedLectureRoutes.POST("/lectures/:lectureId/files", router.lectureHandler.UploadFile)
+	protectedLectureRoutes.GET("/lectures/:lectureId/files", router.lectureHandler.ListFiles)
 	// protectedLectureRoutes.DELETE("/lectures/:lectureId/files/:fileId", lectureHandler.DeleteFile)
 }
 func (r *Router) Run(port string) error {

@@ -22,16 +22,6 @@ func NewLecture(userID, title, description string) *Lecture {
 	}
 }
 
-type LectureFile struct {
-	ID         string    `json:"id"`
-	LectureID  string    `json:"lecture_id" binding:"required"`
-	Name       string    `json:"name" binding:"required"`
-	Type       string    `json:"type" binding:"required"`
-	SizeBytes  int64     `json:"size_bytes" binding:"required"`
-	URL        string    `json:"url" binding:"required"`
-	UploadedAt time.Time `json:"uploaded_at"`
-}
-
 type LectureChapter struct {
 	ID        string    `json:"id"`
 	LectureID string    `json:"lecture_id" binding:"required"`

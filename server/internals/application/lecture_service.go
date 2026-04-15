@@ -1,17 +1,38 @@
 package application
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"path/filepath"
+
 	"github.com/adk-saugat/snapstudy/server/internals/core/domain"
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/inbound"
-	"github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound"
+	outbound "github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/postgres"
+	"github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/storage"
 )
 
+var ErrLectureNotFound = errors.New("lecture not found")
+
 type LectureService struct {
-	lectureRepository outbound.LectureRepository
+	lectureRepository     outbound.LectureRepository
+	lectureFileRepository outbound.LectureFileRepository
+	objectStorage         storage.ObjectStorage
 }
 
-func NewLectureService(lectureRepository outbound.LectureRepository) *LectureService {
-	return &LectureService{lectureRepository: lectureRepository}
+func NewLectureService(
+	lectureRepository outbound.LectureRepository,
+	lectureFileRepository outbound.LectureFileRepository,
+	objectStorage storage.ObjectStorage,
+) *LectureService {
+	return &LectureService{
+		lectureRepository:     lectureRepository,
+		lectureFileRepository: lectureFileRepository,
+		objectStorage:         objectStorage,
+	}
 }
 
 func (s *LectureService) CreateLecture(lecture inbound.CreateLectureInput) (*inbound.CreateLectureResponse, error) {
@@ -79,4 +100,63 @@ func (s *LectureService) DeleteLecture(userID, lectureID string) error {
 	}
 
 	return nil
+}
+
+func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureID, filename string, sizeBytes int64, body io.Reader, contentType string) (string, error) {
+	lectures, err := s.lectureRepository.ListUserLectures(userID)
+	if err != nil {
+		return "", err
+	}
+	var owns bool
+	for _, l := range lectures {
+		if l.ID == lectureID {
+			owns = true
+			break
+		}
+	}
+	if !owns {
+		return "", ErrLectureNotFound
+	}
+
+	safeName := filepath.Base(filename)
+	if safeName == "" || safeName == "." {
+		safeName = "upload"
+	}
+	rnd := make([]byte, 8)
+	if _, err := rand.Read(rnd); err != nil {
+		return "", err
+	}
+	key := fmt.Sprintf("lectures/%s/%s-%s", lectureID, hex.EncodeToString(rnd), safeName)
+
+	if err := s.objectStorage.Put(ctx, key, body, contentType); err != nil {
+		return "", err
+	}
+
+	_, err = s.lectureFileRepository.CreateLectureFile(domain.LectureFile{
+		LectureID: lectureID,
+		Name:      safeName,
+		Type:      contentType,
+		SizeBytes: sizeBytes,
+		URL:       key,
+	})
+	if err != nil {
+		return "", err
+	}
+	return key, nil
+}
+
+func (s *LectureService) ListLectureFiles(ctx context.Context, userID, lectureID string) ([]inbound.LectureFileListItem, error) {
+	files, err := s.lectureFileRepository.ListLectureFiles(userID, lectureID)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]inbound.LectureFileListItem, 0, len(files))
+	for _, f := range files {
+		items = append(items, inbound.LectureFileListItem{
+			Name:      f.Name,
+			Type:      f.Type,
+			SizeBytes: f.SizeBytes,
+		})
+	}
+	return items, nil
 }
