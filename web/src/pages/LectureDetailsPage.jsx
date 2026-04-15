@@ -11,6 +11,7 @@ import LectureFilesTable from "../components/lecture/LectureFilesTable";
 import UploadLectureImagesModal from "../components/lecture/UploadLectureImagesModal";
 import {
   deleteLecture,
+  fetchLectureFiles,
   fetchUserLectures,
   updateLecture,
   uploadLectureImage,
@@ -31,6 +32,23 @@ function LectureDetailsPage() {
   const [actionError, setActionError] = useState("");
   const actionsMenuRef = useRef(null);
 
+  const loadLectureFiles = async () => {
+    if (!lectureId) return;
+    const response = await fetchLectureFiles(lectureId);
+    const filesFromApi = Array.isArray(response?.files) ? response.files : [];
+    setUploadedFiles(
+      filesFromApi.map((file) =>
+        typeof file === "string"
+          ? { name: file, type: "Image", size: "-" }
+          : {
+              name: file?.name || "Unknown file",
+              type: file?.type || "Image",
+              size: formatFileSize(file?.size_bytes),
+            },
+      ),
+    );
+  };
+
   useEffect(() => {
     const loadLectures = async () => {
       setLoadState({ status: "loading" });
@@ -40,6 +58,21 @@ function LectureDetailsPage() {
           ? response.lectures
           : [];
         setLectures(fetchedLectures);
+        if (lectureId) {
+          const filesResponse = await fetchLectureFiles(lectureId);
+          const filesFromApi = Array.isArray(filesResponse?.files) ? filesResponse.files : [];
+          setUploadedFiles(
+            filesFromApi.map((file) =>
+              typeof file === "string"
+                ? { name: file, type: "Image", size: "-" }
+                : {
+                    name: file?.name || "Unknown file",
+                    type: file?.type || "Image",
+                    size: formatFileSize(file?.size_bytes),
+                  },
+            ),
+          );
+        }
         setLoadState({ status: "ok" });
       } catch (error) {
         setLoadState({
@@ -50,7 +83,7 @@ function LectureDetailsPage() {
     };
 
     loadLectures();
-  }, []);
+  }, [lectureId]);
 
   const lecture = useMemo(
     () => lectures.find((item) => item.id === lectureId),
@@ -58,7 +91,7 @@ function LectureDetailsPage() {
   );
 
   const chapters = lecture?.chapters || [];
-  const files = [...uploadedFiles, ...(lecture?.files || [])];
+  const files = uploadedFiles;
   const activeChapter = chapters[activeChapterIndex];
   const updatedAt = `Updated ${formatRelativeTime(lecture?.updated_at)}`;
 
@@ -115,13 +148,7 @@ function LectureDetailsPage() {
         const result = await uploadLectureImage(lectureId, file);
         console.log("UploadFile response:", result);
       }
-
-      const newUploadedFiles = filesToUpload.map((file) => ({
-        name: file.name,
-        type: "Image",
-        size: formatFileSize(file.size),
-      }));
-      setUploadedFiles((prev) => [...newUploadedFiles, ...prev]);
+      await loadLectureFiles();
       closeOverlay();
     } catch (error) {
       setOverlay((prev) =>

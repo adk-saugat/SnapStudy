@@ -7,7 +7,7 @@ import DashboardStats from "../components/dashboard/DashboardStats";
 import LectureListSection from "../components/dashboard/LectureListSection";
 import CreateLectureModal from "../components/dashboard/CreateLectureModal";
 import { logoutUser } from "../api/authApi";
-import { createLecture, fetchUserLectures } from "../api/lectureApi";
+import { createLecture, fetchLectureFiles, fetchUserLectures } from "../api/lectureApi";
 import { formatRelativeTime } from "../lib/relativeTime";
 
 function getSavedUsername() {
@@ -54,9 +54,24 @@ function DashboardPage() {
       setIsFetchingLectures(true);
       try {
         const response = await fetchUserLectures();
-        const fetchedLectures = Array.isArray(response?.lectures)
+        const baseLectures = Array.isArray(response?.lectures)
           ? response.lectures.map(normalizeLecture)
           : [];
+
+        // Keep these calls sequential to avoid DB bind/protocol issues.
+        const fetchedLectures = [];
+        for (const lecture of baseLectures) {
+          try {
+            const filesResponse = await fetchLectureFiles(lecture.id);
+            const files = Array.isArray(filesResponse?.files) ? filesResponse.files : [];
+            fetchedLectures.push({
+              ...lecture,
+              files,
+            });
+          } catch {
+            fetchedLectures.push(lecture);
+          }
+        }
         setLectureList(fetchedLectures);
       } catch (error) {
         setFetchLecturesError(error.message || "Unable to load lectures");
