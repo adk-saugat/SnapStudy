@@ -10,6 +10,7 @@ import LectureDetailsHeader from "../components/lecture/LectureDetailsHeader";
 import LectureFilesTable from "../components/lecture/LectureFilesTable";
 import UploadLectureImagesModal from "../components/lecture/UploadLectureImagesModal";
 import {
+  deleteLectureFile,
   deleteLecture,
   fetchLectureFiles,
   fetchUserLectures,
@@ -39,8 +40,9 @@ function LectureDetailsPage() {
     setUploadedFiles(
       filesFromApi.map((file) =>
         typeof file === "string"
-          ? { name: file, type: "Image", size: "-" }
+          ? { id: file, name: file, type: "Image", size: "-" }
           : {
+              id: file?.id || file?.name || "unknown-file-id",
               name: file?.name || "Unknown file",
               type: file?.type || "Image",
               size: formatFileSize(file?.size_bytes),
@@ -64,8 +66,9 @@ function LectureDetailsPage() {
           setUploadedFiles(
             filesFromApi.map((file) =>
               typeof file === "string"
-                ? { name: file, type: "Image", size: "-" }
+                ? { id: file, name: file, type: "Image", size: "-" }
                 : {
+                    id: file?.id || file?.name || "unknown-file-id",
                     name: file?.name || "Unknown file",
                     type: file?.type || "Image",
                     size: formatFileSize(file?.size_bytes),
@@ -247,6 +250,21 @@ function LectureDetailsPage() {
     }
   };
 
+  const handleDeleteFile = async (fileId) => {
+    if (!lectureId || !fileId) return;
+
+    setActionError("");
+    setPending(`delete-file-${fileId}`);
+    try {
+      await deleteLectureFile(lectureId, fileId);
+      await loadLectureFiles();
+    } catch (error) {
+      setActionError(error.message || "Unable to delete file");
+    } finally {
+      setPending(null);
+    }
+  };
+
   const showNotFound = loadState.status === "ok" && !lecture;
 
   const uploadOverlay = overlay?.type === "upload" ? overlay : null;
@@ -294,7 +312,11 @@ function LectureDetailsPage() {
               isDeletingLecture={pending === "delete"}
             />
 
-            <LectureFilesTable files={files} />
+            <LectureFilesTable
+              files={files}
+              onDeleteFile={handleDeleteFile}
+              deletingFileId={pending?.startsWith("delete-file-") ? pending.replace("delete-file-", "") : null}
+            />
 
             <LectureChaptersSection
               chapters={chapters}

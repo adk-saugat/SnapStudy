@@ -53,7 +53,7 @@ func (router *Router) registerLectureRoutes() {
 	// protectedLectureRoutes.DELETE("/lectures/:lectureId/chapters/:chapterId", lectureHandler.DeleteChapter)
 	protectedLectureRoutes.POST("/lectures/:lectureId/files", router.lectureHandler.UploadFile)
 	protectedLectureRoutes.GET("/lectures/:lectureId/files", router.lectureHandler.ListFiles)
-	// protectedLectureRoutes.DELETE("/lectures/:lectureId/files/:fileId", lectureHandler.DeleteFile)
+	protectedLectureRoutes.DELETE("/lectures/:lectureId/files/:fileId", router.lectureHandler.DeleteFile)
 }
 func (r *Router) Run(port string) error {
 	return r.engine.Run(port)

@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 )
 
 var ErrLectureNotFound = errors.New("lecture not found")
+var ErrLectureFileNotFound = errors.New("lecture file not found")
 
 type LectureService struct {
 	lectureRepository     outbound.LectureRepository
@@ -153,10 +155,33 @@ func (s *LectureService) ListLectureFiles(ctx context.Context, userID, lectureID
 	items := make([]inbound.LectureFileListItem, 0, len(files))
 	for _, f := range files {
 		items = append(items, inbound.LectureFileListItem{
+			ID:        f.ID,
 			Name:      f.Name,
 			Type:      f.Type,
 			SizeBytes: f.SizeBytes,
 		})
 	}
 	return items, nil
+}
+
+func (s *LectureService) DeleteLectureFile(ctx context.Context, userID, lectureID, fileID string) error {
+	file, err := s.lectureFileRepository.GetLectureFile(userID, lectureID, fileID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrLectureFileNotFound
+		}
+		return err
+	}
+
+	if err := s.objectStorage.Delete(ctx, file.URL); err != nil {
+		return err
+	}
+
+	if err := s.lectureFileRepository.DeleteLectureFile(userID, lectureID, fileID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrLectureFileNotFound
+		}
+		return err
+	}
+	return nil
 }

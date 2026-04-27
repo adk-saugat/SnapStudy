@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"errors"
 
 	"github.com/adk-saugat/snapstudy/server/internals/core/domain"
 )
@@ -81,3 +82,53 @@ func (s *LectureFileStore) ListLectureFiles(userID, lectureID string) ([]domain.
 	return files, nil
 }
 
+func (s *LectureFileStore) GetLectureFile(userID, lectureID, fileID string) (*domain.LectureFile, error) {
+	query := `
+		SELECT lf.id, lf.lecture_id, lf.name, lf.type, lf.size_bytes, lf.url, lf.uploaded_at
+		FROM lecture_files lf
+		INNER JOIN lectures l ON l.id = lf.lecture_id
+		WHERE l.user_id = $1 AND lf.lecture_id = $2 AND lf.id = $3
+	`
+
+	var f domain.LectureFile
+	err := s.db.QueryRow(query, userID, lectureID, fileID).Scan(
+		&f.ID,
+		&f.LectureID,
+		&f.Name,
+		&f.Type,
+		&f.SizeBytes,
+		&f.URL,
+		&f.UploadedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, sql.ErrNoRows
+		}
+		return nil, err
+	}
+	return &f, nil
+}
+
+func (s *LectureFileStore) DeleteLectureFile(userID, lectureID, fileID string) error {
+	query := `
+		DELETE FROM lecture_files lf
+		USING lectures l
+		WHERE lf.lecture_id = l.id
+			AND l.user_id = $1
+			AND lf.lecture_id = $2
+			AND lf.id = $3
+	`
+
+	result, err := s.db.Exec(query, userID, lectureID, fileID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}

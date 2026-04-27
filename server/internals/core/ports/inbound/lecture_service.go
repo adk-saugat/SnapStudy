@@ -28,6 +28,7 @@ type CreateLectureResponse struct {
 }
 
 type LectureFileListItem struct {
+	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Type      string `json:"type"`
 	SizeBytes int64  `json:"size_bytes"`
@@ -40,4 +41,5 @@ type LectureService interface {
 	DeleteLecture(userID, lectureID string) error
 	UploadLectureFile(ctx context.Context, userID, lectureID, filename string, sizeBytes int64, body io.Reader, contentType string) (objectKey string, err error)
 	ListLectureFiles(ctx context.Context, userID, lectureID string) ([]LectureFileListItem, error)
+	DeleteLectureFile(ctx context.Context, userID, lectureID, fileID string) error
 }

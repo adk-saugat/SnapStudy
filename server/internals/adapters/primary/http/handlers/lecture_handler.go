@@ -169,3 +169,25 @@ func (handler *LectureHandler) ListFiles(context *gin.Context) {
 		"files":      files,
 	})
 }
+
+func (handler *LectureHandler) DeleteFile(context *gin.Context) {
+	userID := context.GetString("userId")
+	lectureID := context.Param("lectureId")
+	fileID := context.Param("fileId")
+
+	err := handler.lectureService.DeleteLectureFile(context.Request.Context(), userID, lectureID, fileID)
+	if err != nil {
+		if errors.Is(err, application.ErrLectureFileNotFound) {
+			context.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{
+		"message":    "File deleted successfully",
+		"lecture_id": lectureID,
+		"file_id":    fileID,
+	})
+}
