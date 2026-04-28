@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 
 	"github.com/adk-saugat/snapstudy/server/internals/core/domain"
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/inbound"
 	outbound "github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/postgres"
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/storage"
+	outboundTextract "github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/textract"
 )
 
 var ErrLectureNotFound = errors.New("lecture not found")
@@ -23,17 +25,23 @@ type LectureService struct {
 	lectureRepository     outbound.LectureRepository
 	lectureFileRepository outbound.LectureFileRepository
 	objectStorage         storage.ObjectStorage
+	textExtractor         outboundTextract.DocumentTextExtractor
+	storageBucket         string
 }
 
 func NewLectureService(
 	lectureRepository outbound.LectureRepository,
 	lectureFileRepository outbound.LectureFileRepository,
 	objectStorage storage.ObjectStorage,
+	textExtractor outboundTextract.DocumentTextExtractor,
+	storageBucket string,
 ) *LectureService {
 	return &LectureService{
 		lectureRepository:     lectureRepository,
 		lectureFileRepository: lectureFileRepository,
 		objectStorage:         objectStorage,
+		textExtractor:         textExtractor,
+		storageBucket:         storageBucket,
 	}
 }
 
@@ -104,10 +112,10 @@ func (s *LectureService) DeleteLecture(userID, lectureID string) error {
 	return nil
 }
 
-func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureID, filename string, sizeBytes int64, body io.Reader, contentType string) (string, error) {
+func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureID, filename string, sizeBytes int64, body io.Reader, contentType string) (*inbound.UploadLectureFileResponse, error) {
 	lectures, err := s.lectureRepository.ListUserLectures(userID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var owns bool
 	for _, l := range lectures {
@@ -117,7 +125,7 @@ func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureI
 		}
 	}
 	if !owns {
-		return "", ErrLectureNotFound
+		return nil, ErrLectureNotFound
 	}
 
 	safeName := filepath.Base(filename)
@@ -126,12 +134,12 @@ func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureI
 	}
 	rnd := make([]byte, 8)
 	if _, err := rand.Read(rnd); err != nil {
-		return "", err
+		return nil, err
 	}
 	key := fmt.Sprintf("lectures/%s/%s-%s", lectureID, hex.EncodeToString(rnd), safeName)
 
 	if err := s.objectStorage.Put(ctx, key, body, contentType); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	_, err = s.lectureFileRepository.CreateLectureFile(domain.LectureFile{
@@ -142,9 +150,26 @@ func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureI
 		URL:       key,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return key, nil
+
+	extractedText := ""
+	if s.textExtractor != nil && s.storageBucket != "" {
+		result, err := s.textExtractor.Extract(ctx, s.storageBucket, key, contentType)
+		if err != nil {
+			log.Printf("Textract OCR failed for lecture=%s key=%s: %v", lectureID, key, err)
+		} else {
+			extractedText = result.Text
+			log.Printf("Textract OCR for lecture=%s key=%s lines=%d\n%s", lectureID, key, result.LineCount, extractedText)
+		}
+	} else {
+		log.Printf("Textract OCR skipped for lecture=%s key=%s (extractor or bucket not configured)", lectureID, key)
+	}
+
+	return &inbound.UploadLectureFileResponse{
+		ObjectKey:     key,
+		ExtractedText: extractedText,
+	}, nil
 }
 
 func (s *LectureService) ListLectureFiles(ctx context.Context, userID, lectureID string) ([]inbound.LectureFileListItem, error) {

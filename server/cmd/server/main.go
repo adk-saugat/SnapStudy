@@ -9,6 +9,7 @@ import (
 	"github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http/handlers"
 	"github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/postgres"
 	s3storage "github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/s3"
+	textractadapter "github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/textract"
 	"github.com/adk-saugat/snapstudy/server/internals/application"
 	"github.com/joho/godotenv"
 )
@@ -54,14 +55,19 @@ func main() {
 		log.Fatalf("failed to init S3 transfer manager: %v", err)
 	}
 
-	lectureService := application.NewLectureService(lectureStore, lectureFileStore, objectStorage)
+	textExtractor, err := textractadapter.NewAWSDocumentTextExtractor(context.Background(), awsRegion)
+	if err != nil {
+		log.Fatalf("failed to init textract client: %v", err)
+	}
+
+	lectureService := application.NewLectureService(lectureStore, lectureFileStore, objectStorage, textExtractor, s3Bucket)
 	lectureHandler := handlers.NewLectureHandler(lectureService)
 
 	// setup router
 	router := httpAdapter.NewRouter(authHandler, lectureHandler)
 	router.RegisterRoutes()
 
-	// start http server	
+	// start http server
 	serverAddress := os.Getenv("PORT")
 	if err := router.Run(":" + serverAddress); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

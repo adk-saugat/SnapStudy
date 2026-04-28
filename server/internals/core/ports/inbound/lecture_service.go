@@ -34,12 +34,17 @@ type LectureFileListItem struct {
 	SizeBytes int64  `json:"size_bytes"`
 }
 
+type UploadLectureFileResponse struct {
+	ObjectKey     string `json:"object_key"`
+	ExtractedText string `json:"extracted_text"`
+}
+
 type LectureService interface {
 	CreateLecture(lecture CreateLectureInput) (*CreateLectureResponse, error)
 	ListUserLectures(userID string) ([]CreateLectureResponse, error)
 	UpdateLecture(lecture UpdateLectureInput) (*CreateLectureResponse, error)
 	DeleteLecture(userID, lectureID string) error
-	UploadLectureFile(ctx context.Context, userID, lectureID, filename string, sizeBytes int64, body io.Reader, contentType string) (objectKey string, err error)
+	UploadLectureFile(ctx context.Context, userID, lectureID, filename string, sizeBytes int64, body io.Reader, contentType string) (*UploadLectureFileResponse, error)
 	ListLectureFiles(ctx context.Context, userID, lectureID string) ([]LectureFileListItem, error)
 	DeleteLectureFile(ctx context.Context, userID, lectureID, fileID string) error
 }

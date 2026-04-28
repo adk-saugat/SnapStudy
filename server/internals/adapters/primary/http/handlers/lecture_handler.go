@@ -124,7 +124,7 @@ func (handler *LectureHandler) UploadFile(context *gin.Context) {
 	}
 	defer src.Close()
 
-	objectKey, err := handler.lectureService.UploadLectureFile(
+	uploadResponse, err := handler.lectureService.UploadLectureFile(
 		context.Request.Context(),
 		userID,
 		lectureID,
@@ -145,7 +145,8 @@ func (handler *LectureHandler) UploadFile(context *gin.Context) {
 	context.JSON(http.StatusAccepted, gin.H{
 		"message":    "File uploaded successfully",
 		"lecture_id": lectureID,
-		"object_key": objectKey,
+		"object_key": uploadResponse.ObjectKey,
+		"ocr_text":   uploadResponse.ExtractedText,
 		"file": gin.H{
 			"name":       fileHeader.Filename,
 			"size_bytes": fileHeader.Size,
