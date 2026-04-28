@@ -11,4 +11,3 @@ type LectureFile struct {
 	URL        string    `json:"url"`
 	UploadedAt time.Time `json:"uploaded_at"`
 }
-

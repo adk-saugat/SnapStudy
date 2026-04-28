@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/adk-saugat/snapstudy/server/internals/application"
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/inbound"
@@ -112,8 +111,13 @@ func (handler *LectureHandler) UploadFile(context *gin.Context) {
 	}
 
 	contentType := fileHeader.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "image/") {
-		context.JSON(http.StatusBadRequest, gin.H{"error": "uploaded file must be an image"})
+	allowedTypes := map[string]struct{}{
+		"image/jpeg": {},
+		"image/jpg":  {},
+		"image/png":  {},
+	}
+	if _, ok := allowedTypes[contentType]; !ok {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "uploaded file must be PNG or JPEG"})
 		return
 	}
 

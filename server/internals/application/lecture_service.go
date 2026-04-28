@@ -10,9 +10,11 @@ import (
 	"io"
 	"log"
 	"path/filepath"
+	"strings"
 
 	"github.com/adk-saugat/snapstudy/server/internals/core/domain"
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/inbound"
+	outboundMarkdown "github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/markdown"
 	outbound "github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/postgres"
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/storage"
 	outboundTextract "github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/textract"
@@ -23,24 +25,30 @@ var ErrLectureFileNotFound = errors.New("lecture file not found")
 
 type LectureService struct {
 	lectureRepository     outbound.LectureRepository
+	lectureChapterRepo    outbound.LectureChapterRepository
 	lectureFileRepository outbound.LectureFileRepository
 	objectStorage         storage.ObjectStorage
 	textExtractor         outboundTextract.DocumentTextExtractor
+	markdownFormatter     outboundMarkdown.Formatter
 	storageBucket         string
 }
 
 func NewLectureService(
 	lectureRepository outbound.LectureRepository,
+	lectureChapterRepo outbound.LectureChapterRepository,
 	lectureFileRepository outbound.LectureFileRepository,
 	objectStorage storage.ObjectStorage,
 	textExtractor outboundTextract.DocumentTextExtractor,
+	markdownFormatter outboundMarkdown.Formatter,
 	storageBucket string,
 ) *LectureService {
 	return &LectureService{
 		lectureRepository:     lectureRepository,
+		lectureChapterRepo:    lectureChapterRepo,
 		lectureFileRepository: lectureFileRepository,
 		objectStorage:         objectStorage,
 		textExtractor:         textExtractor,
+		markdownFormatter:     markdownFormatter,
 		storageBucket:         storageBucket,
 	}
 }
@@ -142,7 +150,7 @@ func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureI
 		return nil, err
 	}
 
-	_, err = s.lectureFileRepository.CreateLectureFile(domain.LectureFile{
+	createdFile, err := s.lectureFileRepository.CreateLectureFile(domain.LectureFile{
 		LectureID: lectureID,
 		Name:      safeName,
 		Type:      contentType,
@@ -160,7 +168,33 @@ func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureI
 			log.Printf("Textract OCR failed for lecture=%s key=%s: %v", lectureID, key, err)
 		} else {
 			extractedText = result.Text
-			log.Printf("Textract OCR for lecture=%s key=%s lines=%d\n%s", lectureID, key, result.LineCount, extractedText)
+
+			if s.markdownFormatter != nil && extractedText != "" {
+				chapterContent, markdownErr := s.markdownFormatter.FormatFromExtractedText(ctx, extractedText)
+				if markdownErr != nil {
+					log.Printf("Gemini markdown format failed for lecture=%s file=%s: %v", lectureID, createdFile.ID, markdownErr)
+				} else {
+					chapterPosition, posErr := s.lectureChapterRepo.GetNextChapterPosition(lectureID)
+					if posErr != nil {
+						log.Printf("Calculating chapter position failed for lecture=%s: %v", lectureID, posErr)
+					} else {
+						chapterTitle := strings.TrimSpace(chapterContent.Title)
+						if chapterTitle == "" {
+							chapterTitle = fmt.Sprintf("Generated Notes - %s", safeName)
+						}
+						log.Printf("Generated chapter for lecture=%s title=%q\n%s", lectureID, chapterTitle, chapterContent.Markdown)
+						_, chapterErr := s.lectureChapterRepo.CreateLectureChapter(domain.LectureChapter{
+							LectureID: lectureID,
+							Title:     chapterTitle,
+							Markdown:  chapterContent.Markdown,
+							Position:  chapterPosition,
+						})
+						if chapterErr != nil {
+							log.Printf("Saving chapter markdown failed for lecture=%s file=%s: %v", lectureID, createdFile.ID, chapterErr)
+						}
+					}
+				}
+			}
 		}
 	} else {
 		log.Printf("Textract OCR skipped for lecture=%s key=%s (extractor or bucket not configured)", lectureID, key)

@@ -7,6 +7,7 @@ import (
 
 	httpAdapter "github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http"
 	"github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http/handlers"
+	markdownadapter "github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/markdown"
 	"github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/postgres"
 	s3storage "github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/s3"
 	textractadapter "github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/textract"
@@ -40,6 +41,7 @@ func main() {
 	authHandler := handlers.NewAuthHandler(authService)
 
 	lectureStore := postgres.NewLectureStore(db)
+	lectureChapterStore := postgres.NewLectureChapterStore(db)
 	lectureFileStore := postgres.NewLectureFileStore(db)
 
 	s3Bucket := os.Getenv("S3_BUCKET")
@@ -60,7 +62,21 @@ func main() {
 		log.Fatalf("failed to init textract client: %v", err)
 	}
 
-	lectureService := application.NewLectureService(lectureStore, lectureFileStore, objectStorage, textExtractor, s3Bucket)
+	geminiAPIKey := os.Getenv("GEMINI_API_KEY")
+	markdownFormatter, err := markdownadapter.NewGeminiFormatter(geminiAPIKey)
+	if err != nil {
+		log.Fatalf("failed to init gemini formatter: %v", err)
+	}
+
+	lectureService := application.NewLectureService(
+		lectureStore,
+		lectureChapterStore,
+		lectureFileStore,
+		objectStorage,
+		textExtractor,
+		markdownFormatter,
+		s3Bucket,
+	)
 	lectureHandler := handlers.NewLectureHandler(lectureService)
 
 	// setup router
