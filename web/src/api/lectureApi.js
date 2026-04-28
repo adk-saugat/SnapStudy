@@ -105,6 +105,21 @@ export async function fetchLectureFiles(lectureId) {
   return data;
 }
 
+export async function fetchLectureChapters(lectureId) {
+  const response = await fetch(`${API_BASE_URL}/lectures/${lectureId}/chapters`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.error || data?.message || "Fetch lecture chapters request failed";
+    throw new Error(message);
+  }
+
+  return data;
+}
+
 export async function deleteLectureFile(lectureId, fileId) {
   const response = await fetch(`${API_BASE_URL}/lectures/${lectureId}/files/${fileId}`, {
     method: "DELETE",

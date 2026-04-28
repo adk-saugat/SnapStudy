@@ -23,11 +23,12 @@ func NewLecture(userID, title, description string) *Lecture {
 }
 
 type LectureChapter struct {
-	ID        string    `json:"id"`
-	LectureID string    `json:"lecture_id" binding:"required"`
-	Title     string    `json:"title" binding:"required"`
-	Markdown  string    `json:"markdown" binding:"required"`
-	Position  int       `json:"position" binding:"required"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	LectureID     string    `json:"lecture_id" binding:"required"`
+	LectureFileID *string   `json:"lecture_file_id,omitempty"`
+	Title         string    `json:"title" binding:"required"`
+	Markdown      string    `json:"markdown" binding:"required"`
+	Position      int       `json:"position" binding:"required"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }

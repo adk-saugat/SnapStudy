@@ -175,6 +175,22 @@ func (handler *LectureHandler) ListFiles(context *gin.Context) {
 	})
 }
 
+func (handler *LectureHandler) ListChapters(context *gin.Context) {
+	userID := context.GetString("userId")
+	lectureID := context.Param("lectureId")
+
+	chapters, err := handler.lectureService.ListLectureChapters(context.Request.Context(), userID, lectureID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{
+		"lecture_id": lectureID,
+		"chapters":   chapters,
+	})
+}
+
 func (handler *LectureHandler) DeleteFile(context *gin.Context) {
 	userID := context.GetString("userId")
 	lectureID := context.Param("lectureId")

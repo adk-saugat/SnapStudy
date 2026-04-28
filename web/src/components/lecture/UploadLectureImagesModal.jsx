@@ -66,7 +66,7 @@ function UploadLectureImagesModal({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg"
               multiple
               className="sr-only"
               onChange={handleInputChange}

@@ -12,6 +12,7 @@ import UploadLectureImagesModal from "../components/lecture/UploadLectureImagesM
 import {
   deleteLectureFile,
   deleteLecture,
+  fetchLectureChapters,
   fetchLectureFiles,
   fetchUserLectures,
   updateLecture,
@@ -29,6 +30,7 @@ function LectureDetailsPage() {
   const [overlay, setOverlay] = useState(null);
   const [pending, setPending] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [lectureChapters, setLectureChapters] = useState([]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const actionsMenuRef = useRef(null);
@@ -48,6 +50,19 @@ function LectureDetailsPage() {
               size: formatFileSize(file?.size_bytes),
             },
       ),
+    );
+  };
+
+  const loadLectureChapters = async () => {
+    if (!lectureId) return;
+    const response = await fetchLectureChapters(lectureId);
+    const chaptersFromApi = Array.isArray(response?.chapters) ? response.chapters : [];
+    setLectureChapters(
+      chaptersFromApi.map((chapter, index) => ({
+        id: chapter?.id || `chapter-${index}`,
+        title: chapter?.title || `Chapter ${index + 1}`,
+        markdown: chapter?.markdown || "",
+      })),
     );
   };
 
@@ -75,6 +90,7 @@ function LectureDetailsPage() {
                   },
             ),
           );
+          await loadLectureChapters();
         }
         setLoadState({ status: "ok" });
       } catch (error) {
@@ -93,7 +109,7 @@ function LectureDetailsPage() {
     [lectures, lectureId],
   );
 
-  const chapters = lecture?.chapters || [];
+  const chapters = lectureChapters;
   const files = uploadedFiles;
   const activeChapter = chapters[activeChapterIndex];
   const updatedAt = `Updated ${formatRelativeTime(lecture?.updated_at)}`;
@@ -152,6 +168,7 @@ function LectureDetailsPage() {
         console.log("UploadFile response:", result);
       }
       await loadLectureFiles();
+      await loadLectureChapters();
       closeOverlay();
     } catch (error) {
       setOverlay((prev) =>
@@ -258,6 +275,7 @@ function LectureDetailsPage() {
     try {
       await deleteLectureFile(lectureId, fileId);
       await loadLectureFiles();
+      await loadLectureChapters();
     } catch (error) {
       setActionError(error.message || "Unable to delete file");
     } finally {
@@ -269,6 +287,12 @@ function LectureDetailsPage() {
 
   const uploadOverlay = overlay?.type === "upload" ? overlay : null;
   const editOverlay = overlay?.type === "edit" ? overlay : null;
+
+  useEffect(() => {
+    if (activeChapterIndex >= chapters.length) {
+      setActiveChapterIndex(0);
+    }
+  }, [chapters.length, activeChapterIndex]);
 
   return (
     <div className="page-shell">

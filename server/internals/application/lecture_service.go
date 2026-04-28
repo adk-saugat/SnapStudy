@@ -184,10 +184,11 @@ func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureI
 						}
 						log.Printf("Generated chapter for lecture=%s title=%q\n%s", lectureID, chapterTitle, chapterContent.Markdown)
 						_, chapterErr := s.lectureChapterRepo.CreateLectureChapter(domain.LectureChapter{
-							LectureID: lectureID,
-							Title:     chapterTitle,
-							Markdown:  chapterContent.Markdown,
-							Position:  chapterPosition,
+							LectureID:     lectureID,
+							LectureFileID: &createdFile.ID,
+							Title:         chapterTitle,
+							Markdown:      chapterContent.Markdown,
+							Position:      chapterPosition,
 						})
 						if chapterErr != nil {
 							log.Printf("Saving chapter markdown failed for lecture=%s file=%s: %v", lectureID, createdFile.ID, chapterErr)
@@ -218,6 +219,24 @@ func (s *LectureService) ListLectureFiles(ctx context.Context, userID, lectureID
 			Name:      f.Name,
 			Type:      f.Type,
 			SizeBytes: f.SizeBytes,
+		})
+	}
+	return items, nil
+}
+
+func (s *LectureService) ListLectureChapters(ctx context.Context, userID, lectureID string) ([]inbound.LectureChapterListItem, error) {
+	chapters, err := s.lectureChapterRepo.ListLectureChapters(userID, lectureID)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]inbound.LectureChapterListItem, 0, len(chapters))
+	for _, chapter := range chapters {
+		items = append(items, inbound.LectureChapterListItem{
+			ID:       chapter.ID,
+			Title:    chapter.Title,
+			Markdown: chapter.Markdown,
+			Position: chapter.Position,
 		})
 	}
 	return items, nil
