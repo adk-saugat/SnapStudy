@@ -7,7 +7,12 @@ import DashboardStats from "../components/dashboard/DashboardStats";
 import LectureListSection from "../components/dashboard/LectureListSection";
 import CreateLectureModal from "../components/dashboard/CreateLectureModal";
 import { logoutUser } from "../api/authApi";
-import { createLecture, fetchLectureFiles, fetchUserLectures } from "../api/lectureApi";
+import {
+  createLecture,
+  fetchLectureChapters,
+  fetchLectureFiles,
+  fetchUserLectures,
+} from "../api/lectureApi";
 import { formatRelativeTime } from "../lib/relativeTime";
 
 function getSavedUsername() {
@@ -45,6 +50,7 @@ function DashboardPage() {
       updatedAt: `Updated ${formatRelativeTime(lecture?.updated_at)}`,
       files: [],
       chapters: [],
+      chapterCount: 0,
     };
   };
 
@@ -64,9 +70,15 @@ function DashboardPage() {
           try {
             const filesResponse = await fetchLectureFiles(lecture.id);
             const files = Array.isArray(filesResponse?.files) ? filesResponse.files : [];
+            const chaptersResponse = await fetchLectureChapters(lecture.id);
+            const chapters = Array.isArray(chaptersResponse?.chapters)
+              ? chaptersResponse.chapters
+              : [];
             fetchedLectures.push({
               ...lecture,
               files,
+              chapters,
+              chapterCount: chapters.length,
             });
           } catch {
             fetchedLectures.push(lecture);
@@ -141,7 +153,7 @@ function DashboardPage() {
     0,
   );
   const totalChapters = lectureList.reduce(
-    (total, lecture) => total + lecture.chapters.length,
+    (total, lecture) => total + (lecture.chapterCount ?? lecture.chapters.length ?? 0),
     0,
   );
   const stats = [

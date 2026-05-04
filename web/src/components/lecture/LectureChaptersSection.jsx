@@ -36,7 +36,7 @@ function LectureChaptersSection({
               }`}
               style={{ cursor: "pointer" }}
             >
-              Chapter {index + 1}
+              {chapter.title || `Chapter ${index + 1}`}
             </button>
           ))}
         </div>

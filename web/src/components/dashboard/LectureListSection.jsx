@@ -41,7 +41,7 @@ function LectureListSection({ lectureList, isLoading, error }) {
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
                 <span className="rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-900">
-                  {lecture.chapters.length} chapters
+                  {lecture.chapterCount ?? lecture.chapters.length ?? 0} chapters
                 </span>
               </div>
               <ActionButton to={`/dashboard/lectures/${lecture.id}`}>

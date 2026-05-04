@@ -182,7 +182,6 @@ func (s *LectureService) UploadLectureFile(ctx context.Context, userID, lectureI
 						if chapterTitle == "" {
 							chapterTitle = fmt.Sprintf("Generated Notes - %s", safeName)
 						}
-						log.Printf("Generated chapter for lecture=%s title=%q\n%s", lectureID, chapterTitle, chapterContent.Markdown)
 						_, chapterErr := s.lectureChapterRepo.CreateLectureChapter(domain.LectureChapter{
 							LectureID:     lectureID,
 							LectureFileID: &createdFile.ID,
