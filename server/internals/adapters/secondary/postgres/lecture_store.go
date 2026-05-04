@@ -64,6 +64,28 @@ func (s *LectureStore) ListUserLectures(userID string) ([]domain.Lecture, error)
 	return lectures, nil
 }
 
+func (s *LectureStore) GetUserLecture(userID, lectureID string) (*domain.Lecture, error) {
+	query := `
+		SELECT id, user_id, title, COALESCE(description, ''), created_at, updated_at
+		FROM lectures
+		WHERE id = $1 AND user_id = $2
+	`
+
+	var lecture domain.Lecture
+	err := s.db.QueryRow(query, lectureID, userID).Scan(
+		&lecture.ID,
+		&lecture.UserID,
+		&lecture.Title,
+		&lecture.Description,
+		&lecture.CreatedAt,
+		&lecture.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &lecture, nil
+}
+
 func (s *LectureStore) UpdateLecture(lecture domain.Lecture) (*domain.Lecture, error) {
 	query := `
 		UPDATE lectures

@@ -18,10 +18,13 @@ import (
 	outbound "github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/postgres"
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/storage"
 	outboundTextract "github.com/adk-saugat/snapstudy/server/internals/core/ports/outbound/textract"
+	"github.com/adk-saugat/snapstudy/server/pkg/lecturepdf"
 )
 
 var ErrLectureNotFound = errors.New("lecture not found")
 var ErrLectureFileNotFound = errors.New("lecture file not found")
+var ErrLectureNoChaptersForExport = errors.New("no chapters available for PDF export")
+var ErrChapterNotFound = errors.New("chapter not found")
 
 type LectureService struct {
 	lectureRepository     outbound.LectureRepository
@@ -239,6 +242,101 @@ func (s *LectureService) ListLectureChapters(ctx context.Context, userID, lectur
 		})
 	}
 	return items, nil
+}
+
+func (s *LectureService) ExportLecturePDF(ctx context.Context, userID, lectureID string) ([]byte, string, error) {
+	_ = ctx
+	lecture, err := s.lectureRepository.GetUserLecture(userID, lectureID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", ErrLectureNotFound
+		}
+		return nil, "", err
+	}
+
+	chapters, err := s.lectureChapterRepo.ListLectureChapters(userID, lectureID)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(chapters) == 0 {
+		return nil, "", ErrLectureNoChaptersForExport
+	}
+
+	sections := make([]lecturepdf.ChapterSection, 0, len(chapters))
+	for _, chapter := range chapters {
+		sections = append(sections, lecturepdf.ChapterSection{
+			Title: chapter.Title,
+			Body:  chapter.Markdown,
+		})
+	}
+
+	pdfBytes, err := lecturepdf.BuildLecturePDF(lecture.Title, sections)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return pdfBytes, sanitizeLecturePDFFilename(lecture.Title), nil
+}
+
+func (s *LectureService) ExportChapterPDF(ctx context.Context, userID, lectureID, chapterID string) ([]byte, string, error) {
+	_ = ctx
+	_, err := s.lectureRepository.GetUserLecture(userID, lectureID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", ErrLectureNotFound
+		}
+		return nil, "", err
+	}
+
+	chapter, err := s.lectureChapterRepo.GetLectureChapter(userID, lectureID, chapterID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", ErrChapterNotFound
+		}
+		return nil, "", err
+	}
+
+	pdfBytes, err := lecturepdf.BuildChapterPDF(chapter.Title, chapter.Markdown)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return pdfBytes, sanitizeLecturePDFFilename(chapter.Title), nil
+}
+
+func sanitizeLecturePDFFilename(title string) string {
+	const maxRunes = 80
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return "lecture.pdf"
+	}
+
+	var b strings.Builder
+	count := 0
+	for _, r := range title {
+		if count >= maxRunes {
+			break
+		}
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+			count++
+		case r == ' ' || r == '-' || r == '_':
+			b.WriteRune('-')
+			count++
+		default:
+			// skip characters that are unsafe in filenames
+		}
+	}
+
+	out := strings.Trim(b.String(), "-")
+	if out == "" {
+		return "lecture.pdf"
+	}
+	if !strings.HasSuffix(strings.ToLower(out), ".pdf") {
+		out += ".pdf"
+	}
+	return out
 }
 
 func (s *LectureService) DeleteLectureFile(ctx context.Context, userID, lectureID, fileID string) error {

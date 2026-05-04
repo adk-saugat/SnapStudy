@@ -96,3 +96,32 @@ func (s *LectureChapterStore) ListLectureChapters(userID, lectureID string) ([]d
 	}
 	return chapters, nil
 }
+
+func (s *LectureChapterStore) GetLectureChapter(userID, lectureID, chapterID string) (*domain.LectureChapter, error) {
+	query := `
+		SELECT lc.id, lc.lecture_id, lc.lecture_file_id, lc.title, lc.markdown, lc.position, lc.created_at, lc.updated_at
+		FROM lecture_chapters lc
+		INNER JOIN lectures l ON l.id = lc.lecture_id
+		WHERE l.user_id = $1 AND lc.lecture_id = $2 AND lc.id = $3
+	`
+
+	var chapter domain.LectureChapter
+	var lectureFileID sql.NullString
+	err := s.db.QueryRow(query, userID, lectureID, chapterID).Scan(
+		&chapter.ID,
+		&chapter.LectureID,
+		&lectureFileID,
+		&chapter.Title,
+		&chapter.Markdown,
+		&chapter.Position,
+		&chapter.CreatedAt,
+		&chapter.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if lectureFileID.Valid {
+		chapter.LectureFileID = &lectureFileID.String
+	}
+	return &chapter, nil
+}

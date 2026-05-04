@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
+	"mime"
 	"net/http"
 
 	"github.com/adk-saugat/snapstudy/server/internals/application"
@@ -189,6 +191,72 @@ func (handler *LectureHandler) ListChapters(context *gin.Context) {
 		"lecture_id": lectureID,
 		"chapters":   chapters,
 	})
+}
+
+func (handler *LectureHandler) DownloadLecturePDF(context *gin.Context) {
+	userID := context.GetString("userId")
+	lectureID := context.Param("lectureId")
+
+	pdfBytes, filename, err := handler.lectureService.ExportLecturePDF(
+		context.Request.Context(),
+		userID,
+		lectureID,
+	)
+	if err != nil {
+		if errors.Is(err, application.ErrLectureNotFound) {
+			context.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, application.ErrLectureNoChaptersForExport) {
+			context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	disposition := mime.FormatMediaType("attachment", map[string]string{
+		"filename": filename,
+	})
+	if disposition == "" {
+		disposition = fmt.Sprintf("attachment; filename=%q", filename)
+	}
+	context.Header("Content-Disposition", disposition)
+	context.Data(http.StatusOK, "application/pdf", pdfBytes)
+}
+
+func (handler *LectureHandler) DownloadChapterPDF(context *gin.Context) {
+	userID := context.GetString("userId")
+	lectureID := context.Param("lectureId")
+	chapterID := context.Param("chapterId")
+
+	pdfBytes, filename, err := handler.lectureService.ExportChapterPDF(
+		context.Request.Context(),
+		userID,
+		lectureID,
+		chapterID,
+	)
+	if err != nil {
+		if errors.Is(err, application.ErrLectureNotFound) {
+			context.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, application.ErrChapterNotFound) {
+			context.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	disposition := mime.FormatMediaType("attachment", map[string]string{
+		"filename": filename,
+	})
+	if disposition == "" {
+		disposition = fmt.Sprintf("attachment; filename=%q", filename)
+	}
+	context.Header("Content-Disposition", disposition)
+	context.Data(http.StatusOK, "application/pdf", pdfBytes)
 }
 
 func (handler *LectureHandler) DeleteFile(context *gin.Context) {

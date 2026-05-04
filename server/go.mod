@@ -10,9 +10,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/textract v1.40.21
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.12.0
+	github.com/go-pdf/fpdf v0.9.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
+	github.com/yuin/goldmark v1.7.8
 	golang.org/x/crypto v0.48.0
 	google.golang.org/genai v1.54.0
 )

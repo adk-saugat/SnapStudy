@@ -54,5 +54,7 @@ type LectureService interface {
 	UploadLectureFile(ctx context.Context, userID, lectureID, filename string, sizeBytes int64, body io.Reader, contentType string) (*UploadLectureFileResponse, error)
 	ListLectureFiles(ctx context.Context, userID, lectureID string) ([]LectureFileListItem, error)
 	ListLectureChapters(ctx context.Context, userID, lectureID string) ([]LectureChapterListItem, error)
+	ExportLecturePDF(ctx context.Context, userID, lectureID string) (pdf []byte, filename string, err error)
+	ExportChapterPDF(ctx context.Context, userID, lectureID, chapterID string) (pdf []byte, filename string, err error)
 	DeleteLectureFile(ctx context.Context, userID, lectureID, fileID string) error
 }
