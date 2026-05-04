@@ -8,6 +8,8 @@ function LectureChaptersSection({
   activeChapterIndex,
   onSelectChapter,
   activeChapter,
+  onDownloadChapterPDF,
+  isDownloadingChapterPDF = false,
 }) {
   if (chapters.length === 0) {
     return (
@@ -26,7 +28,7 @@ function LectureChaptersSection({
         <div className="space-y-1">
           {chapters.map((chapter, index) => (
             <button
-              key={chapter.title}
+              key={chapter.id || `${chapter.title}-${index}`}
               type="button"
               onClick={() => onSelectChapter(index)}
               className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
@@ -45,7 +47,14 @@ function LectureChaptersSection({
       <article className="p-4 md:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-orange-200 pb-3">
           <h2 className="text-lg font-bold text-orange-950 md:text-xl">{activeChapter.title}</h2>
-          <ActionButton variant="secondary">Download Chapter PDF</ActionButton>
+          <ActionButton
+            type="button"
+            variant="secondary"
+            onClick={onDownloadChapterPDF}
+            disabled={!activeChapter?.id || isDownloadingChapterPDF}
+          >
+            {isDownloadingChapterPDF ? "Downloading…" : "Download chapter PDF"}
+          </ActionButton>
         </div>
         <div className="rounded-lg border border-orange-200 bg-white p-4 text-orange-900 md:p-5">
           <ReactMarkdown components={chapterMarkdownComponents}>

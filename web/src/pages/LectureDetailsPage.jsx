@@ -12,6 +12,7 @@ import UploadLectureImagesModal from "../components/lecture/UploadLectureImagesM
 import {
   deleteLectureFile,
   deleteLecture,
+  downloadChapterPDF,
   fetchLectureChapters,
   fetchLectureFiles,
   fetchUserLectures,
@@ -267,6 +268,19 @@ function LectureDetailsPage() {
     }
   };
 
+  const handleDownloadChapterPDF = async () => {
+    if (!lectureId || !activeChapter?.id) return;
+    setActionError("");
+    setPending("download-chapter-pdf");
+    try {
+      await downloadChapterPDF(lectureId, activeChapter.id, activeChapter.title);
+    } catch (error) {
+      setActionError(error.message || "Unable to download chapter PDF");
+    } finally {
+      setPending(null);
+    }
+  };
+
   const handleDeleteFile = async (fileId) => {
     if (!lectureId || !fileId) return;
 
@@ -347,6 +361,8 @@ function LectureDetailsPage() {
               activeChapterIndex={activeChapterIndex}
               onSelectChapter={setActiveChapterIndex}
               activeChapter={activeChapter}
+              onDownloadChapterPDF={handleDownloadChapterPDF}
+              isDownloadingChapterPDF={pending === "download-chapter-pdf"}
             />
           </>
         ) : null}

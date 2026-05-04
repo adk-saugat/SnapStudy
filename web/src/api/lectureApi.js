@@ -120,6 +120,123 @@ export async function fetchLectureChapters(lectureId) {
   return data;
 }
 
+function parseFilenameFromContentDisposition(header) {
+  if (!header || typeof header !== "string") {
+    return null;
+  }
+  const utf8Match = /filename\*=UTF-8''([^;\s]+)/i.exec(header);
+  if (utf8Match) {
+    try {
+      return decodeURIComponent(utf8Match[1].replace(/^"+|"+$/g, ""));
+    } catch {
+      return utf8Match[1];
+    }
+  }
+  const quotedMatch = /filename="([^"]+)"/i.exec(header);
+  if (quotedMatch) {
+    return quotedMatch[1];
+  }
+  const plainMatch = /filename=([^;\s]+)/i.exec(header);
+  if (plainMatch) {
+    return plainMatch[1].replace(/^"+|"+$/g, "");
+  }
+  return null;
+}
+
+/** Mirrors server filename rules: safe ASCII + dashes, max length, always ends in .pdf */
+function sanitizeChapterTitleForPdfFilename(title) {
+  const trimmed = (title || "").trim();
+  if (!trimmed) {
+    return "chapter.pdf";
+  }
+  let out = "";
+  let count = 0;
+  for (const ch of trimmed) {
+    if (count >= 80) break;
+    if (/[a-zA-Z0-9]/.test(ch)) {
+      out += ch;
+      count++;
+    } else if (ch === " " || ch === "-" || ch === "_") {
+      out += "-";
+      count++;
+    }
+  }
+  out = out.replace(/^-+|-+$/g, "");
+  if (!out) {
+    return "chapter.pdf";
+  }
+  return /\.pdf$/i.test(out) ? out : `${out}.pdf`;
+}
+
+/**
+ * GET /lectures/:lectureId/pdf — downloads the combined lecture PDF (all chapters).
+ */
+export async function downloadLecturePDF(lectureId) {
+  const response = await fetch(`${API_BASE_URL}/lectures/${lectureId}/pdf`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const message = data?.error || data?.message || "Download lecture PDF failed";
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const headerFilename = parseFilenameFromContentDisposition(
+    response.headers.get("Content-Disposition"),
+  );
+  const filename = headerFilename || `lecture-${lectureId}.pdf`;
+
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+/**
+ * GET /lectures/:lectureId/chapters/:chapterId/pdf — downloads PDF for one chapter only.
+ * @param {string} chapterTitle — used for the saved filename when the header is missing (not sent in the URL).
+ */
+export async function downloadChapterPDF(lectureId, chapterId, chapterTitle) {
+  const response = await fetch(
+    `${API_BASE_URL}/lectures/${lectureId}/chapters/${chapterId}/pdf`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const message = data?.error || data?.message || "Download chapter PDF failed";
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const headerFilename = parseFilenameFromContentDisposition(
+    response.headers.get("Content-Disposition"),
+  );
+  const filename =
+    headerFilename || sanitizeChapterTitleForPdfFilename(chapterTitle);
+
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 export async function deleteLectureFile(lectureId, fileId) {
   const response = await fetch(`${API_BASE_URL}/lectures/${lectureId}/files/${fileId}`, {
     method: "DELETE",
