@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
@@ -13,6 +13,7 @@ import {
   deleteLectureFile,
   deleteLecture,
   downloadChapterPDF,
+  downloadLecturePDF,
   fetchLectureChapters,
   fetchLectureFiles,
   fetchUserLectures,
@@ -54,7 +55,7 @@ function LectureDetailsPage() {
     );
   };
 
-  const loadLectureChapters = async () => {
+  const loadLectureChapters = useCallback(async () => {
     if (!lectureId) return;
     const response = await fetchLectureChapters(lectureId);
     const chaptersFromApi = Array.isArray(response?.chapters) ? response.chapters : [];
@@ -65,7 +66,7 @@ function LectureDetailsPage() {
         markdown: chapter?.markdown || "",
       })),
     );
-  };
+  }, [lectureId]);
 
   useEffect(() => {
     const loadLectures = async () => {
@@ -95,6 +96,10 @@ function LectureDetailsPage() {
         }
         setLoadState({ status: "ok" });
       } catch (error) {
+        if (error.code === "SUBSCRIPTION_REQUIRED") {
+          navigate("/subscribe", { replace: true });
+          return;
+        }
         setLoadState({
           status: "error",
           message: error.message || "Unable to load lecture details",
@@ -103,7 +108,7 @@ function LectureDetailsPage() {
     };
 
     loadLectures();
-  }, [lectureId]);
+  }, [lectureId, navigate, loadLectureChapters]);
 
   const lecture = useMemo(
     () => lectures.find((item) => item.id === lectureId),
@@ -281,6 +286,19 @@ function LectureDetailsPage() {
     }
   };
 
+  const handleDownloadLecturePDF = async () => {
+    if (!lectureId || chapters.length === 0) return;
+    setActionError("");
+    setPending("download-lecture-pdf");
+    try {
+      await downloadLecturePDF(lectureId, lecture?.title);
+    } catch (error) {
+      setActionError(error.message || "Unable to download lecture PDF");
+    } finally {
+      setPending(null);
+    }
+  };
+
   const handleDeleteFile = async (fileId) => {
     if (!lectureId || !fileId) return;
 
@@ -345,6 +363,10 @@ function LectureDetailsPage() {
               onUploadImages={() =>
                 setOverlay({ type: "upload", files: [], error: "" })
               }
+              onDownloadLecturePDF={handleDownloadLecturePDF}
+              isDownloadingLecturePDF={pending === "download-lecture-pdf"}
+              lectureHasChapters={chapters.length > 0}
+              isDownloadingChapterPDF={pending === "download-chapter-pdf"}
               onEditLecture={handleOpenEditModal}
               onDeleteLecture={handleOpenDeleteModal}
               isDeletingLecture={pending === "delete"}
@@ -363,6 +385,7 @@ function LectureDetailsPage() {
               activeChapter={activeChapter}
               onDownloadChapterPDF={handleDownloadChapterPDF}
               isDownloadingChapterPDF={pending === "download-chapter-pdf"}
+              isDownloadingLecturePDF={pending === "download-lecture-pdf"}
             />
           </>
         ) : null}

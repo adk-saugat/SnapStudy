@@ -7,19 +7,28 @@ import (
 )
 
 type Router struct {
-	engine         *gin.Engine
-	authHandler    *handlers.AuthHandler
-	lectureHandler *handlers.LectureHandler
+	engine              *gin.Engine
+	authHandler         *handlers.AuthHandler
+	lectureHandler      *handlers.LectureHandler
+	billingHandler      *handlers.BillingHandler
+	requireSubscription gin.HandlerFunc
 }
 
-func NewRouter(authHandler *handlers.AuthHandler, lectureHandler *handlers.LectureHandler) *Router {
+func NewRouter(
+	authHandler *handlers.AuthHandler,
+	lectureHandler *handlers.LectureHandler,
+	billingHandler *handlers.BillingHandler,
+	requireSubscription gin.HandlerFunc,
+) *Router {
 	engine := gin.Default()
 	engine.Use(middleware.NewCorsMiddleware())
 
 	return &Router{
-		engine:         engine,
-		authHandler:    authHandler,
-		lectureHandler: lectureHandler,
+		engine:              engine,
+		authHandler:         authHandler,
+		lectureHandler:      lectureHandler,
+		billingHandler:      billingHandler,
+		requireSubscription: requireSubscription,
 	}
 }
 
@@ -29,6 +38,8 @@ func (router *Router) RegisterRoutes() {
 	})
 
 	router.registerAuthRoutes()
+	router.registerBillingRoutes()
+	router.engine.POST("/webhooks/stripe", router.billingHandler.StripeWebhook)
 	router.registerLectureRoutes()
 }
 
@@ -38,9 +49,18 @@ func (router *Router) registerAuthRoutes() {
 	router.engine.POST("/logout", router.authHandler.Logout)
 }
 
+func (router *Router) registerBillingRoutes() {
+	authed := router.engine.Group("/")
+	authed.Use(middleware.AuthMiddleware())
+	authed.GET("/billing/status", router.billingHandler.Status)
+	authed.POST("/billing/start-trial", router.billingHandler.StartAppTrial)
+	authed.POST("/billing/sync-checkout", router.billingHandler.SyncCheckoutSession)
+	authed.POST("/billing/checkout-session", router.billingHandler.CreateCheckoutSession)
+}
+
 func (router *Router) registerLectureRoutes() {
 	protectedLectureRoutes := router.engine.Group("/")
-	protectedLectureRoutes.Use(middleware.AuthMiddleware())
+	protectedLectureRoutes.Use(middleware.AuthMiddleware(), router.requireSubscription)
 
 	protectedLectureRoutes.POST("/lectures", router.lectureHandler.CreateLecture)
 	protectedLectureRoutes.GET("/lectures", router.lectureHandler.ListUserLectures)

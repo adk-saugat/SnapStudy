@@ -12,7 +12,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		token, err := c.Cookie("access_token")
 		if err != nil || token == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
+			return 
 		}
 		userId, err := jwt.VerifyToken(token)
 		if err != nil {

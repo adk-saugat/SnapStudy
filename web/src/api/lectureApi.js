@@ -1,5 +1,13 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
+function assertOk(response, data, fallbackMessage) {
+  if (response.ok) return;
+  const message = data?.error || data?.message || fallbackMessage;
+  const err = new Error(message);
+  err.code = data?.code;
+  throw err;
+}
+
 export async function createLecture(payload) {
   const response = await fetch(`${API_BASE_URL}/lectures`, {
     method: "POST",
@@ -11,11 +19,7 @@ export async function createLecture(payload) {
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error || data?.message || "Create lecture request failed";
-    throw new Error(message);
-  }
-
+  assertOk(response, data, "Create lecture request failed");
   return data;
 }
 
@@ -26,11 +30,7 @@ export async function fetchUserLectures() {
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error || data?.message || "Fetch lectures request failed";
-    throw new Error(message);
-  }
-
+  assertOk(response, data, "Fetch lectures request failed");
   return data;
 }
 
@@ -45,11 +45,7 @@ export async function updateLecture(lectureId, payload) {
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error || data?.message || "Update lecture request failed";
-    throw new Error(message);
-  }
-
+  assertOk(response, data, "Update lecture request failed");
   return data;
 }
 
@@ -60,11 +56,7 @@ export async function deleteLecture(lectureId) {
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error || data?.message || "Delete lecture request failed";
-    throw new Error(message);
-  }
-
+  assertOk(response, data, "Delete lecture request failed");
   return data;
 }
 
@@ -82,11 +74,7 @@ export async function uploadLectureImage(lectureId, file) {
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error || data?.message || "Upload image request failed";
-    throw new Error(message);
-  }
-
+  assertOk(response, data, "Upload image request failed");
   return data;
 }
 
@@ -97,11 +85,7 @@ export async function fetchLectureFiles(lectureId) {
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error || data?.message || "Fetch lecture files request failed";
-    throw new Error(message);
-  }
-
+  assertOk(response, data, "Fetch lecture files request failed");
   return data;
 }
 
@@ -112,11 +96,7 @@ export async function fetchLectureChapters(lectureId) {
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error || data?.message || "Fetch lecture chapters request failed";
-    throw new Error(message);
-  }
-
+  assertOk(response, data, "Fetch lecture chapters request failed");
   return data;
 }
 
@@ -144,10 +124,10 @@ function parseFilenameFromContentDisposition(header) {
 }
 
 /** Mirrors server filename rules: safe ASCII + dashes, max length, always ends in .pdf */
-function sanitizeChapterTitleForPdfFilename(title) {
+function sanitizeTitleForPdfFilename(title, emptyFallbackFile) {
   const trimmed = (title || "").trim();
   if (!trimmed) {
-    return "chapter.pdf";
+    return emptyFallbackFile;
   }
   let out = "";
   let count = 0;
@@ -163,15 +143,16 @@ function sanitizeChapterTitleForPdfFilename(title) {
   }
   out = out.replace(/^-+|-+$/g, "");
   if (!out) {
-    return "chapter.pdf";
+    return emptyFallbackFile;
   }
   return /\.pdf$/i.test(out) ? out : `${out}.pdf`;
 }
 
 /**
  * GET /lectures/:lectureId/pdf — downloads the combined lecture PDF (all chapters).
+ * @param {string} [lectureTitle] — fallback filename when Content-Disposition is missing.
  */
-export async function downloadLecturePDF(lectureId) {
+export async function downloadLecturePDF(lectureId, lectureTitle) {
   const response = await fetch(`${API_BASE_URL}/lectures/${lectureId}/pdf`, {
     method: "GET",
     credentials: "include",
@@ -179,15 +160,15 @@ export async function downloadLecturePDF(lectureId) {
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    const message = data?.error || data?.message || "Download lecture PDF failed";
-    throw new Error(message);
+    assertOk(response, data, "Download lecture PDF failed");
   }
 
   const blob = await response.blob();
   const headerFilename = parseFilenameFromContentDisposition(
     response.headers.get("Content-Disposition"),
   );
-  const filename = headerFilename || `lecture-${lectureId}.pdf`;
+  const filename =
+    headerFilename || sanitizeTitleForPdfFilename(lectureTitle, "lecture.pdf");
 
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -215,8 +196,7 @@ export async function downloadChapterPDF(lectureId, chapterId, chapterTitle) {
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    const message = data?.error || data?.message || "Download chapter PDF failed";
-    throw new Error(message);
+    assertOk(response, data, "Download chapter PDF failed");
   }
 
   const blob = await response.blob();
@@ -224,7 +204,7 @@ export async function downloadChapterPDF(lectureId, chapterId, chapterTitle) {
     response.headers.get("Content-Disposition"),
   );
   const filename =
-    headerFilename || sanitizeChapterTitleForPdfFilename(chapterTitle);
+    headerFilename || sanitizeTitleForPdfFilename(chapterTitle, "chapter.pdf");
 
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -244,10 +224,6 @@ export async function deleteLectureFile(lectureId, fileId) {
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = data?.error || data?.message || "Delete lecture file request failed";
-    throw new Error(message);
-  }
-
+  assertOk(response, data, "Delete lecture file request failed");
   return data;
 }

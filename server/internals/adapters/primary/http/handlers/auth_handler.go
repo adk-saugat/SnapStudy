@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/adk-saugat/snapstudy/server/internals/core/ports/inbound"
 	"github.com/gin-gonic/gin"
@@ -12,10 +13,14 @@ type AuthHandler struct {
 }
 
 type loginUserResponse struct {
-	ID        string `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	CreatedAt string `json:"created_at"`
+	ID                 string  `json:"id"`
+	Username           string  `json:"username"`
+	Email              string  `json:"email"`
+	CreatedAt          string  `json:"created_at"`
+	SubscriptionActive bool    `json:"subscription_active"`
+	TrialActive        bool    `json:"trial_active"`
+	TrialEndsAt        *string `json:"trial_ends_at,omitempty"`
+	HasPremiumAccess   bool    `json:"has_premium_access"`
 }
 
 func NewAuthHandler(auth inbound.AuthService) *AuthHandler {
@@ -81,12 +86,23 @@ func (authHandler *AuthHandler) Login(context *gin.Context) {
 		httpOnlyCookie,
 	)
 
+	now := time.Now()
+	trialActive := response.User.TrialEndsAt != nil && response.User.TrialEndsAt.After(now)
+	var trialEndsAt *string
+	if response.User.TrialEndsAt != nil {
+		s := response.User.TrialEndsAt.Format(time.RFC3339)
+		trialEndsAt = &s
+	}
 	context.JSON(http.StatusOK, gin.H{
 		"user": loginUserResponse{
-			ID:        response.User.ID,
-			Username:  response.User.Username,
-			Email:     response.User.Email,
-			CreatedAt: response.User.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:                 response.User.ID,
+			Username:           response.User.Username,
+			Email:              response.User.Email,
+			CreatedAt:          response.User.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			SubscriptionActive: response.User.SubscriptionActive,
+			TrialActive:        trialActive,
+			TrialEndsAt:        trialEndsAt,
+			HasPremiumAccess:   response.User.HasPremiumAccess(now),
 		},
 		"message": "User logged in successfully!",
 	})

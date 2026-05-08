@@ -7,6 +7,7 @@ import DashboardStats from "../components/dashboard/DashboardStats";
 import LectureListSection from "../components/dashboard/LectureListSection";
 import CreateLectureModal from "../components/dashboard/CreateLectureModal";
 import { logoutUser } from "../api/authApi";
+import { fetchBillingStatus } from "../api/billingApi";
 import {
   createLecture,
   fetchLectureChapters,
@@ -55,6 +56,8 @@ function DashboardPage() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadLectures = async () => {
       setFetchLecturesError("");
       setIsFetchingLectures(true);
@@ -64,12 +67,13 @@ function DashboardPage() {
           ? response.lectures.map(normalizeLecture)
           : [];
 
-        // Keep these calls sequential to avoid DB bind/protocol issues.
         const fetchedLectures = [];
         for (const lecture of baseLectures) {
           try {
             const filesResponse = await fetchLectureFiles(lecture.id);
-            const files = Array.isArray(filesResponse?.files) ? filesResponse.files : [];
+            const files = Array.isArray(filesResponse?.files)
+              ? filesResponse.files
+              : [];
             const chaptersResponse = await fetchLectureChapters(lecture.id);
             const chapters = Array.isArray(chaptersResponse?.chapters)
               ? chaptersResponse.chapters
@@ -84,16 +88,59 @@ function DashboardPage() {
             fetchedLectures.push(lecture);
           }
         }
-        setLectureList(fetchedLectures);
+        if (!cancelled) {
+          setLectureList(fetchedLectures);
+        }
       } catch (error) {
-        setFetchLecturesError(error.message || "Unable to load lectures");
+        if (error.code === "SUBSCRIPTION_REQUIRED") {
+          navigate("/subscribe", { replace: true });
+          return;
+        }
+        if (!cancelled) {
+          setFetchLecturesError(error.message || "Unable to load lectures");
+        }
       } finally {
-        setIsFetchingLectures(false);
+        if (!cancelled) {
+          setIsFetchingLectures(false);
+        }
       }
     };
 
-    loadLectures();
-  }, []);
+    (async () => {
+      try {
+        const status = await fetchBillingStatus();
+        if (cancelled) return;
+        const raw = localStorage.getItem("snapstudy_user");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          parsed.subscription_active = status.subscription_active;
+          parsed.trial_active = status.trial_active;
+          parsed.has_premium_access = status.has_premium_access;
+          if (status.trial_ends_at) {
+            parsed.trial_ends_at = status.trial_ends_at;
+          }
+          localStorage.setItem("snapstudy_user", JSON.stringify(parsed));
+        }
+        if (!status.has_premium_access) {
+          if (!cancelled) {
+            setIsFetchingLectures(false);
+          }
+          navigate("/subscribe", { replace: true });
+          return;
+        }
+        await loadLectures();
+      } catch {
+        if (!cancelled) {
+          setIsFetchingLectures(false);
+          navigate("/login", { replace: true });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const handleLogout = async () => {
     setLogoutError("");
@@ -132,10 +179,7 @@ function DashboardPage() {
       const createdLecture = response?.lecture;
 
       if (createdLecture) {
-        setLectureList((prev) => [
-          normalizeLecture(createdLecture),
-          ...prev,
-        ]);
+        setLectureList((prev) => [normalizeLecture(createdLecture), ...prev]);
       }
 
       setCreateLectureForm({ title: "", description: "" });
@@ -153,7 +197,8 @@ function DashboardPage() {
     0,
   );
   const totalChapters = lectureList.reduce(
-    (total, lecture) => total + (lecture.chapterCount ?? lecture.chapters.length ?? 0),
+    (total, lecture) =>
+      total + (lecture.chapterCount ?? lecture.chapters.length ?? 0),
     0,
   );
   const stats = [

@@ -41,7 +41,24 @@ func (f *GeminiFormatter) FormatFromExtractedText(ctx context.Context, rawText s
 		return &outboundMarkdown.ChapterContent{}, nil
 	}
 
-	prompt := "You are a formatter. Convert the OCR text below into clean, readable Markdown and create a concise chapter title.\nReturn STRICT JSON ONLY with keys: title, markdown.\nDo not add hallucinated facts.\n\nOCR TEXT:\n" + trimmed
+	prompt := `You are a formatting engine.
+
+Task: Convert the OCR text into clean, readable Markdown AND produce a concise chapter title.
+
+Output format requirements (strict):
+- Return a single JSON object only (no surrounding text, no Markdown, no code fences).
+- JSON keys must be exactly: "title", "markdown".
+- Values must be plain strings (no nested objects/arrays).
+
+Markdown cleanup rules:
+- Fix common OCR issues (broken line wraps, stray hyphens, duplicated headers, spacing).
+- Use headings, lists, and paragraphs when clearly implied by the text.
+- Preserve code/math exactly when present; otherwise do not invent it.
+- If something is unclear or partially missing, keep it as-is or omit it—do not guess.
+- Do not add any facts not present in the OCR text.
+
+OCR TEXT:
+` + trimmed
 	response, err := f.client.Models.GenerateContent(ctx, geminiModel, genai.Text(prompt), nil)
 	if err != nil {
 		return nil, fmt.Errorf("gemini sdk request failed: %w", err)

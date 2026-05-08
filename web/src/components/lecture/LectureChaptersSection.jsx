@@ -10,6 +10,7 @@ function LectureChaptersSection({
   activeChapter,
   onDownloadChapterPDF,
   isDownloadingChapterPDF = false,
+  isDownloadingLecturePDF = false,
 }) {
   if (chapters.length === 0) {
     return (
@@ -51,7 +52,11 @@ function LectureChaptersSection({
             type="button"
             variant="secondary"
             onClick={onDownloadChapterPDF}
-            disabled={!activeChapter?.id || isDownloadingChapterPDF}
+            disabled={
+              !activeChapter?.id ||
+              isDownloadingChapterPDF ||
+              isDownloadingLecturePDF
+            }
           >
             {isDownloadingChapterPDF ? "Downloading…" : "Download chapter PDF"}
           </ActionButton>

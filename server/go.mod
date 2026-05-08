@@ -14,6 +14,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
+	github.com/stripe/stripe-go/v81 v81.4.0
 	github.com/yuin/goldmark v1.7.8
 	golang.org/x/crypto v0.48.0
 	google.golang.org/genai v1.54.0

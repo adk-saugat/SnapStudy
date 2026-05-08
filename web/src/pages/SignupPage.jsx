@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
 import { loginUser, registerUser } from "../api/authApi";
+import { navigateAfterAuth } from "../lib/navigateAfterAuth";
 
 function SignupPage() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ function SignupPage() {
         password: formData.password,
       });
       localStorage.setItem("snapstudy_user", JSON.stringify(response.user));
-      navigate("/dashboard");
+      navigateAfterAuth(navigate, response.user);
     } catch (submitError) {
       setError(submitError.message || "Unable to sign up");
     } finally {

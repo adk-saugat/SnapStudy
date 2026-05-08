@@ -8,6 +8,10 @@ function LectureDetailsHeader({
   isActionMenuOpen,
   onToggleActionMenu,
   onUploadImages,
+  onDownloadLecturePDF,
+  isDownloadingLecturePDF = false,
+  lectureHasChapters = false,
+  isDownloadingChapterPDF = false,
   onEditLecture,
   onDeleteLecture,
   isDeletingLecture,
@@ -25,7 +29,18 @@ function LectureDetailsHeader({
         <p className="mt-2 text-sm text-orange-900/70">{updatedAt}</p>
       </div>
       <div className="flex flex-wrap gap-3">
-        <ActionButton variant="secondary">Download Lecture PDF</ActionButton>
+        <ActionButton
+          type="button"
+          variant="secondary"
+          onClick={onDownloadLecturePDF}
+          disabled={
+            !lectureHasChapters ||
+            isDownloadingLecturePDF ||
+            isDownloadingChapterPDF
+          }
+        >
+          {isDownloadingLecturePDF ? "Downloading…" : "Download lecture PDF"}
+        </ActionButton>
         <ActionButton onClick={onUploadImages}>Upload Images</ActionButton>
         <div className="relative" ref={actionsMenuRef}>
           <button

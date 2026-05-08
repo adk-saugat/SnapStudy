@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ActionButton from "../components/ActionButton";
 import SiteNav from "../components/SiteNav";
 import { loginUser } from "../api/authApi";
+import { navigateAfterAuth } from "../lib/navigateAfterAuth";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ function LoginPage() {
     try {
       const response = await loginUser(formData);
       localStorage.setItem("snapstudy_user", JSON.stringify(response.user));
-      navigate("/dashboard");
+      navigateAfterAuth(navigate, response.user);
     } catch (submitError) {
       setError(submitError.message || "Unable to log in");
     } finally {

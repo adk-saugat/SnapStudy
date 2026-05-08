@@ -7,6 +7,7 @@ import (
 
 	httpAdapter "github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http"
 	"github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http/handlers"
+	"github.com/adk-saugat/snapstudy/server/internals/adapters/primary/http/middleware"
 	markdownadapter "github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/markdown"
 	"github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/postgres"
 	s3storage "github.com/adk-saugat/snapstudy/server/internals/adapters/secondary/s3"
@@ -34,6 +35,10 @@ func main() {
 		log.Fatalf("Database ping failed: %v", err)
 	}
 	log.Println("Database ping successful")
+
+	if err := postgres.EnsureUserBillingSchema(db); err != nil {
+		log.Fatalf("Database schema: %v", err)
+	}
 
 	// wire application dependencies
 	userStore := postgres.NewUserStore(db)
@@ -79,8 +84,11 @@ func main() {
 	)
 	lectureHandler := handlers.NewLectureHandler(lectureService)
 
+	billingHandler := handlers.NewBillingHandler(userStore)
+	requireSubscription := middleware.RequireActiveSubscription(userStore)
+
 	// setup router
-	router := httpAdapter.NewRouter(authHandler, lectureHandler)
+	router := httpAdapter.NewRouter(authHandler, lectureHandler, billingHandler, requireSubscription)
 	router.RegisterRoutes()
 
 	// start http server
